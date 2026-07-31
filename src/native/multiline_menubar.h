@@ -6,61 +6,106 @@ extern "C" {
 #endif
 
 /**
- * Click callback invoked when the status item is clicked.
- * @param button  "left" or "right".
- * @param x       On-screen x of the status item (screen points, origin bottom-left).
- * @param y       On-screen y of the status item (screen points, origin bottom-left).
- * @param width   Width of the status item in screen points.
- * @param height  Height of the status item in screen points.
+ * Click callback invoked when a status item is clicked.
+ * @param id        The menubar instance id.
+ * @param button    "left" or "right".
+ * @param rx        On-screen x of the status item rect (screen points, origin bottom-left).
+ * @param ry        On-screen y of the status item rect (screen points, origin bottom-left).
+ * @param rw        Width of the status item rect in screen points.
+ * @param rh        Height of the status item rect in screen points.
+ * @param cx        On-screen x of the cursor at click time (screen points).
+ * @param cy        On-screen y of the cursor at click time (screen points).
  */
-typedef void (*MultilineMenubarClickCallback)(const char *button, double x,
-                                              double y, double width,
-                                              double height);
+typedef void (*MultilineMenubarClickCallback)(const char *id, const char *button,
+                                              double rx, double ry, double rw,
+                                              double rh, double cx, double cy);
 
 /**
- * Create and show the multiline menubar item.
- * Safe to call multiple times.
+ * Hover callback invoked when the cursor enters or leaves a status item.
+ * @param id          The menubar instance id.
+ * @param hover_type  "enter" or "leave".
  */
-void multiline_menubar_show(void);
+typedef void (*MultilineMenubarHoverCallback)(const char *id,
+                                              const char *hover_type);
 
 /**
- * Hide the multiline menubar item without destroying it.
+ * Create and show a multiline menubar instance with the given id.
+ * Safe to call multiple times for different ids. Calling with an existing id
+ * re-shows the instance.
  */
-void multiline_menubar_hide(void);
+void multiline_menubar_create(const char *id);
+
+/**
+ * Destroy a multiline menubar instance, removing it from the status bar.
+ */
+void multiline_menubar_destroy(const char *id);
+
+/**
+ * Show a previously created (or hidden) menubar instance.
+ */
+void multiline_menubar_show(const char *id);
+
+/**
+ * Hide a menubar instance without destroying it.
+ */
+void multiline_menubar_hide(const char *id);
 
 /**
  * Update the two lines displayed in the menubar.
  * Both pointers may be NULL, in which case an empty string is used.
  */
-void multiline_menubar_set_text(const char *top, const char *bottom);
+void multiline_menubar_set_text(const char *id, const char *top,
+                                const char *bottom);
 
 /**
  * Update the font sizes (in points) for the top label and bottom value.
  * Values are clamped to the supported range on the native side.
  */
-void multiline_menubar_set_style(double top_size, double bottom_size);
+void multiline_menubar_set_style(const char *id, double top_size,
+                                 double bottom_size);
 
 /**
  * Set the tooltip shown when hovering the menubar item. Pass NULL to clear.
  */
-void multiline_menubar_set_tooltip(const char *tooltip);
+void multiline_menubar_set_tooltip(const char *id, const char *tooltip);
 
 /**
- * Set the application version string shown in the right-click context menu.
- * Pass NULL to clear. The string is copied.
+ * Attach a native NSMenu to this instance. A right click pops the menu up
+ * directly underneath the status item. Pass NULL to clear the menu.
+ *
+ * The pointer is expected to come from `muda::ContextMenu::ns_menu()`. It is
+ * retained by a strong property here, so the menu object stays alive even if
+ * the owning Rust value is dropped. Selections still travel through muda's
+ * global event handler, which Tauri installs, so they surface in
+ * `on_menu_event` as usual.
+ *
+ * @param ns_menu  Pointer to the native NSMenu (`*mut c_void`), or NULL.
  */
-void multiline_menubar_set_version(const char *version);
+void multiline_menubar_set_menu(const char *id, void *ns_menu);
 
 /**
- * Register a click callback. The host (Rust) uses it to open a popup window
+ * Fill the on-screen rectangle of the status item. Returns 1 on success
+ * (instance exists), 0 otherwise. Coordinates use macOS screen space
+ * (origin bottom-left, y increasing upward).
+ */
+int multiline_menubar_get_rect(const char *id, double *x, double *y,
+                               double *width, double *height);
+
+/**
+ * Returns 1 if the menubar instance exists and is visible, 0 otherwise.
+ */
+int multiline_menubar_is_visible(const char *id);
+
+/**
+ * Register the click callback. The host (Rust) uses it to open a popup window
  * below the item and emit click events. Pass NULL to clear.
  */
 void multiline_menubar_set_click_handler(MultilineMenubarClickCallback callback);
 
 /**
- * Returns 1 if the menubar item exists and is visible, 0 otherwise.
+ * Register the hover callback. Pass NULL to clear.
  */
-int multiline_menubar_is_visible(void);
+void multiline_menubar_set_hover_handler(MultilineMenubarHoverCallback callback);
 
 #ifdef __cplusplus
 }

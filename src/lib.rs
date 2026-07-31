@@ -36,18 +36,23 @@ impl<R: Runtime, T: Manager<R>> crate::MultilineMenubarExt<R> for T {
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("multiline-menubar")
         .invoke_handler(tauri::generate_handler![
+            commands::create,
+            commands::destroy,
+            commands::show,
+            commands::hide,
             commands::set_text,
             commands::set_font_sizes,
             commands::set_tooltip,
             commands::set_visible,
+            commands::set_menu,
+            commands::remove_menu,
+            commands::get_rect,
+            commands::is_visible,
             commands::set_popup_window,
             commands::set_auto_popup,
             commands::open_popup,
             commands::close_popup,
-            commands::toggle_popup,
-            commands::show,
-            commands::hide,
-            commands::is_visible
+            commands::toggle_popup
         ])
         .setup(|app, api| {
             #[cfg(mobile)]

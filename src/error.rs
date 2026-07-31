@@ -5,11 +5,15 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Io(#[from] std::io::Error),
+    Tauri(#[from] tauri::Error),
+    #[error("Menu error: {0}")]
+    Menu(String),
     #[error("Mobile plugin error: {0}")]
     Mobile(String),
     #[error("This feature is only supported on macOS")]
     UnsupportedPlatform,
+    #[error("Menubar instance not found")]
+    InstanceNotFound,
 }
 
 impl Serialize for Error {

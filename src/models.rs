@@ -1,8 +1,67 @@
 use serde::{Deserialize, Serialize};
 
+/// On-screen rectangle of a menubar item, in macOS screen points
+/// (origin bottom-left, y increasing upward). Mirrors Tauri's `Rect`.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Rect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// A menu item descriptor used to build a real Tauri `Menu` from the frontend.
+/// The `id` field becomes the menu item's `MenuId`, which is reported back
+/// through Tauri's global `on_menu_event`.
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum MenuItemDescriptor {
+    Item {
+        id: String,
+        text: String,
+        accelerator: Option<String>,
+        disabled: Option<bool>,
+    },
+    Check {
+        id: String,
+        text: String,
+        checked: Option<bool>,
+        accelerator: Option<String>,
+    },
+    Separator,
+    Submenu {
+        text: String,
+        items: Vec<MenuItemDescriptor>,
+    },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateRequest {
+    pub id: String,
+    #[serde(default)]
+    pub top: Option<String>,
+    #[serde(default)]
+    pub bottom: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DestroyRequest {
+    pub id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IdRequest {
+    pub id: String,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetTextRequest {
+    pub id: String,
     pub top: String,
     pub bottom: String,
 }
@@ -10,6 +69,7 @@ pub struct SetTextRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FontSizesRequest {
+    pub id: String,
     pub top: f64,
     pub bottom: f64,
 }
@@ -17,13 +77,28 @@ pub struct FontSizesRequest {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TooltipRequest {
+    pub id: String,
     pub tooltip: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetVisibleRequest {
+    pub id: String,
     pub visible: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetMenuRequest {
+    pub id: String,
+    pub items: Vec<MenuItemDescriptor>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetRectRequest {
+    pub id: String,
 }
 
 #[derive(Debug, Deserialize)]

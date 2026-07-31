@@ -1,16 +1,21 @@
 const COMMANDS: &[&str] = &[
+    "create",
+    "destroy",
+    "show",
+    "hide",
     "set_text",
     "set_font_sizes",
     "set_tooltip",
     "set_visible",
+    "set_menu",
+    "remove_menu",
+    "get_rect",
+    "is_visible",
     "set_popup_window",
     "set_auto_popup",
     "open_popup",
     "close_popup",
     "toggle_popup",
-    "show",
-    "hide",
-    "is_visible",
 ];
 
 fn main() {

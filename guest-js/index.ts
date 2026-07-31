@@ -1,21 +1,47 @@
 import { invoke } from '@tauri-apps/api/core'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface CreateOptions {
+  id: string
+  top?: string
+  bottom?: string
+}
+
+export interface IdOptions {
+  id: string
+}
 
 export interface SetTextOptions {
+  id: string
   top: string
   bottom: string
 }
 
 export interface FontSizesOptions {
+  id: string
   top: number
   bottom: number
 }
 
 export interface TooltipOptions {
+  id: string
   tooltip: string
 }
 
 export interface SetVisibleOptions {
+  id: string
   visible: boolean
+}
+
+export interface Rect {
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 export interface PopupWindowOptions {
@@ -30,26 +56,83 @@ export interface VisibilityResult {
   visible: boolean
 }
 
+/** A menu item descriptor. The `id` becomes the menu item's `MenuId`, and is
+ *  reported back as `itemId` on the instance's `menu` event (and to Tauri's
+ *  global `on_menu_event` on the Rust side). */
+export type MenuItemDescriptor =
+  | {
+      type: 'item'
+      id: string
+      text: string
+      accelerator?: string
+      disabled?: boolean
+    }
+  | {
+      type: 'check'
+      id: string
+      text: string
+      checked?: boolean
+      accelerator?: string
+    }
+  | { type: 'separator' }
+  | { type: 'submenu'; text: string; items: MenuItemDescriptor[] }
+
+export interface SetMenuOptions {
+  id: string
+  items: MenuItemDescriptor[]
+}
+
 export interface ClickEvent {
+  id: string
+  position: { x: number; y: number }
+  rect: Rect
   button: 'left' | 'right'
-  x: number
-  y: number
-  width: number
-  height: number
+  buttonState: 'up' | 'down'
+}
+
+export interface HoverEvent {
+  id: string
+  rect: Rect
 }
 
 export interface PopupEvent {
+  id: string
   window: string
 }
 
+export interface ReadyEvent {
+  id: string
+}
+
+/** Emitted when an item in an instance's context menu is selected. */
+export interface MenuSelectionEvent {
+  /** The menubar instance the menu belongs to. */
+  id: string
+  /** The `id` of the selected menu item. */
+  itemId: string
+  /** Present only for `check` items: the state after the toggle. */
+  checked?: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Event name helpers
+// ---------------------------------------------------------------------------
+
 /**
- * Event names emitted by the plugin. Listen with `@tauri-apps/api/event`'s
- * `listen`. These mirror the conventions of the macOS menubar plugin family.
+ * Build the fully-qualified event name for a menubar instance. Events are
+ * namespaced per instance: `multiline-menubar://{id}//{name}`.
  */
-export const EVENT_READY = 'multiline-menubar://ready'
-export const EVENT_CLICK = 'multiline-menubar://click'
-export const EVENT_POPUP_OPEN = 'multiline-menubar://popup-open'
-export const EVENT_POPUP_CLOSE = 'multiline-menubar://popup-close'
+export function eventName(id: string, name: string): string {
+  return `multiline-menubar://${id}//${name}`
+}
+
+export const EVENT_READY = (id: string) => eventName(id, 'ready')
+export const EVENT_CLICK = (id: string) => eventName(id, 'click')
+export const EVENT_ENTER = (id: string) => eventName(id, 'enter')
+export const EVENT_LEAVE = (id: string) => eventName(id, 'leave')
+export const EVENT_POPUP_OPEN = (id: string) => eventName(id, 'popup-open')
+export const EVENT_POPUP_CLOSE = (id: string) => eventName(id, 'popup-close')
+export const EVENT_MENU = (id: string) => eventName(id, 'menu')
 
 /**
  * Supported font-size range (points) for the two lines.
@@ -60,100 +143,126 @@ export const FONT_SIZE_RANGE = {
   bottom: { min: 8, max: 16 },
 } as const
 
-/**
- * Show the multiline menu bar item.
- */
-export async function show(): Promise<void> {
-  return await invoke('plugin:multiline-menubar|show')
+// ---------------------------------------------------------------------------
+// Commands
+// ---------------------------------------------------------------------------
+
+export async function create(options: CreateOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|create', { payload: options })
 }
 
-/**
- * Hide the multiline menu bar item.
- */
-export async function hide(): Promise<void> {
-  return await invoke('plugin:multiline-menubar|hide')
+export async function destroy(options: IdOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|destroy', { payload: options })
 }
 
-/**
- * Show or hide the status item.
- */
-export async function setVisible(options: SetVisibleOptions): Promise<void> {
-  return await invoke('plugin:multiline-menubar|set_visible', { payload: options })
+export async function show(options: IdOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|show', { payload: options })
 }
 
-/**
- * Update the two lines displayed in the menu bar.
- */
+export async function hide(options: IdOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|hide', { payload: options })
+}
+
 export async function setText(options: SetTextOptions): Promise<void> {
-  return await invoke('plugin:multiline-menubar|set_text', {
-    payload: options,
-  })
+  return await invoke('plugin:multiline-menubar|set_text', { payload: options })
 }
 
-/**
- * Update the font size (in points) of the top label and bottom value.
- * Values are clamped to the supported range on the native side.
- */
 export async function setFontSizes(options: FontSizesOptions): Promise<void> {
   return await invoke('plugin:multiline-menubar|set_font_sizes', {
     payload: options,
   })
 }
 
-/**
- * Set the tooltip shown when hovering the menu bar item.
- */
 export async function setTooltip(options: TooltipOptions): Promise<void> {
   return await invoke('plugin:multiline-menubar|set_tooltip', {
     payload: options,
   })
 }
 
+export async function setVisible(options: SetVisibleOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|set_visible', {
+    payload: options,
+  })
+}
+
 /**
- * Set which Tauri window is used as the popup. Call this before the first
- * open if you use a window label other than "popup".
+ * Attach a context menu to an instance, shown on right click directly beneath
+ * the menubar item.
+ *
+ * The menu is a real Tauri/muda menu built on the Rust side from this
+ * descriptor. Listen for selections with {@link onMenuSelection} — note that
+ * `onMenuEvent` from `@tauri-apps/api/menu` will *not* fire for these items,
+ * because that channel only carries menus created through Tauri's own `menu`
+ * plugin commands.
  */
+export async function setMenu(options: SetMenuOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|set_menu', { payload: options })
+}
+
+/**
+ * Subscribe to context-menu selections for one instance.
+ *
+ * Returns the usual Tauri unlisten function.
+ *
+ * ```ts
+ * await onMenuSelection('main', (e) => {
+ *   if (e.itemId === 'quit') exit()
+ * })
+ * ```
+ */
+export async function onMenuSelection(
+  id: string,
+  handler: (event: MenuSelectionEvent) => void
+): Promise<UnlistenFn> {
+  return await listen<MenuSelectionEvent>(EVENT_MENU(id), (e) =>
+    handler(e.payload)
+  )
+}
+
+/** Detach the context menu from an instance. */
+export async function removeMenu(options: IdOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|remove_menu', {
+    payload: options,
+  })
+}
+
+/** Returns the on-screen rectangle of an instance in macOS screen points. */
+export async function getRect(options: IdOptions): Promise<Rect> {
+  return await invoke<Rect>('plugin:multiline-menubar|get_rect', {
+    payload: options,
+  })
+}
+
+export async function isVisible(options: IdOptions): Promise<boolean> {
+  const result = await invoke<VisibilityResult>(
+    'plugin:multiline-menubar|is_visible',
+    { payload: options }
+  )
+  return result.visible
+}
+
 export async function setPopupWindow(options: PopupWindowOptions): Promise<void> {
   return await invoke('plugin:multiline-menubar|set_popup_window', {
     payload: options,
   })
 }
 
-/**
- * Enable or disable automatically toggling the popup on left click.
- * When disabled, you can still drive the popup from the `click` event.
- */
 export async function setAutoPopup(options: SetAutoPopupOptions): Promise<void> {
   return await invoke('plugin:multiline-menubar|set_auto_popup', {
     payload: options,
   })
 }
 
-/**
- * Show and position the popup window below the menu bar item.
- */
-export async function openPopup(): Promise<void> {
-  return await invoke('plugin:multiline-menubar|open_popup')
+export async function openPopup(options: IdOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|open_popup', { payload: options })
 }
 
-/**
- * Hide the popup window.
- */
-export async function closePopup(): Promise<void> {
-  return await invoke('plugin:multiline-menubar|close_popup')
+export async function closePopup(options: IdOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|close_popup', { payload: options })
 }
 
-/**
- * Toggle the popup window's visibility.
- */
-export async function togglePopup(): Promise<void> {
-  return await invoke('plugin:multiline-menubar|toggle_popup')
-}
-
-/**
- * Check whether the multiline menu bar item is currently visible.
- */
-export async function isVisible(): Promise<boolean> {
-  const result = await invoke<VisibilityResult>('plugin:multiline-menubar|is_visible')
-  return result.visible
+export async function togglePopup(options: IdOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|toggle_popup', {
+    payload: options,
+  })
 }
