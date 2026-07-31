@@ -21,6 +21,53 @@ pub(crate) async fn set_font_sizes<R: Runtime>(
 }
 
 #[command]
+pub(crate) async fn set_tooltip<R: Runtime>(
+    app: AppHandle<R>,
+    payload: TooltipRequest,
+) -> crate::Result<()> {
+    app.multiline_menubar().set_tooltip(payload.tooltip)
+}
+
+#[command]
+pub(crate) async fn set_visible<R: Runtime>(
+    app: AppHandle<R>,
+    payload: SetVisibleRequest,
+) -> crate::Result<()> {
+    app.multiline_menubar().set_visible(payload.visible)
+}
+
+#[command]
+pub(crate) async fn set_popup_window<R: Runtime>(
+    app: AppHandle<R>,
+    payload: PopupWindowRequest,
+) -> crate::Result<()> {
+    app.multiline_menubar().set_popup_window(payload.label)
+}
+
+#[command]
+pub(crate) async fn set_auto_popup<R: Runtime>(
+    app: AppHandle<R>,
+    payload: SetAutoPopupRequest,
+) -> crate::Result<()> {
+    app.multiline_menubar().set_auto_popup(payload.enabled)
+}
+
+#[command]
+pub(crate) async fn open_popup<R: Runtime>(app: AppHandle<R>) -> crate::Result<()> {
+    app.multiline_menubar().open_popup()
+}
+
+#[command]
+pub(crate) async fn close_popup<R: Runtime>(app: AppHandle<R>) -> crate::Result<()> {
+    app.multiline_menubar().close_popup()
+}
+
+#[command]
+pub(crate) async fn toggle_popup<R: Runtime>(app: AppHandle<R>) -> crate::Result<()> {
+    app.multiline_menubar().toggle_popup()
+}
+
+#[command]
 pub(crate) async fn show<R: Runtime>(app: AppHandle<R>) -> crate::Result<()> {
     app.multiline_menubar().show()
 }

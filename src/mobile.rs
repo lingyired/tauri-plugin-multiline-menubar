@@ -42,6 +42,38 @@ impl<R: Runtime> MultilineMenubar<R> {
         Err(crate::Error::UnsupportedPlatform)
     }
 
+    pub fn set_tooltip(&self, _tooltip: String) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn set_version(&self, _version: String) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn set_visible(&self, _visible: bool) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn set_popup_window(&self, _label: String) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn set_auto_popup(&self, _enabled: bool) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn open_popup(&self) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn close_popup(&self) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn toggle_popup(&self) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
     pub fn is_visible(&self) -> crate::Result<bool> {
         Err(crate::Error::UnsupportedPlatform)
     }

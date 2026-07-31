@@ -1,4 +1,17 @@
-const COMMANDS: &[&str] = &["set_text", "set_font_sizes", "show", "hide", "is_visible"];
+const COMMANDS: &[&str] = &[
+    "set_text",
+    "set_font_sizes",
+    "set_tooltip",
+    "set_visible",
+    "set_popup_window",
+    "set_auto_popup",
+    "open_popup",
+    "close_popup",
+    "toggle_popup",
+    "show",
+    "hide",
+    "is_visible",
+];
 
 fn main() {
     tauri_plugin::Builder::new(COMMANDS)
@@ -8,6 +21,8 @@ fn main() {
 
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     if target_os == "macos" {
+        println!("cargo:rerun-if-changed=src/native/multiline_menubar.mm");
+        println!("cargo:rerun-if-changed=src/native/multiline_menubar.h");
         cc::Build::new()
             .file("src/native/multiline_menubar.mm")
             .flag("-fobjc-arc")

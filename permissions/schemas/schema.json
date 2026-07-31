@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the close_popup command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-close-popup",
+          "markdownDescription": "Enables the close_popup command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the close_popup command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-close-popup",
+          "markdownDescription": "Denies the close_popup command without any pre-configured scope."
+        },
+        {
           "description": "Enables the hide command without any pre-configured scope.",
           "type": "string",
           "const": "allow-hide",
@@ -319,6 +331,30 @@
           "markdownDescription": "Denies the is_visible command without any pre-configured scope."
         },
         {
+          "description": "Enables the open_popup command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-open-popup",
+          "markdownDescription": "Enables the open_popup command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_popup command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-open-popup",
+          "markdownDescription": "Denies the open_popup command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_auto_popup command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-auto-popup",
+          "markdownDescription": "Enables the set_auto_popup command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_auto_popup command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-auto-popup",
+          "markdownDescription": "Denies the set_auto_popup command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_font_sizes command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-font-sizes",
@@ -329,6 +365,18 @@
           "type": "string",
           "const": "deny-set-font-sizes",
           "markdownDescription": "Denies the set_font_sizes command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_popup_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-popup-window",
+          "markdownDescription": "Enables the set_popup_window command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_popup_window command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-popup-window",
+          "markdownDescription": "Denies the set_popup_window command without any pre-configured scope."
         },
         {
           "description": "Enables the set_text command without any pre-configured scope.",
@@ -343,6 +391,30 @@
           "markdownDescription": "Denies the set_text command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_tooltip command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-tooltip",
+          "markdownDescription": "Enables the set_tooltip command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_tooltip command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-tooltip",
+          "markdownDescription": "Denies the set_tooltip command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_visible command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-visible",
+          "markdownDescription": "Enables the set_visible command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_visible command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-visible",
+          "markdownDescription": "Denies the set_visible command without any pre-configured scope."
+        },
+        {
           "description": "Enables the show command without any pre-configured scope.",
           "type": "string",
           "const": "allow-show",
@@ -355,10 +427,22 @@
           "markdownDescription": "Denies the show command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the multiline-menubar plugin\n#### This default permission set includes:\n\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-show`\n- `allow-hide`\n- `allow-is-visible`",
+          "description": "Enables the toggle_popup command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-toggle-popup",
+          "markdownDescription": "Enables the toggle_popup command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the toggle_popup command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-toggle-popup",
+          "markdownDescription": "Denies the toggle_popup command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the multiline-menubar plugin\n#### This default permission set includes:\n\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-popup-window`\n- `allow-set-auto-popup`\n- `allow-open-popup`\n- `allow-close-popup`\n- `allow-toggle-popup`\n- `allow-show`\n- `allow-hide`\n- `allow-is-visible`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the multiline-menubar plugin\n#### This default permission set includes:\n\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-show`\n- `allow-hide`\n- `allow-is-visible`"
+          "markdownDescription": "Default permissions for the multiline-menubar plugin\n#### This default permission set includes:\n\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-popup-window`\n- `allow-set-auto-popup`\n- `allow-open-popup`\n- `allow-close-popup`\n- `allow-toggle-popup`\n- `allow-show`\n- `allow-hide`\n- `allow-is-visible`"
         }
       ]
     }

@@ -71,10 +71,102 @@ static const CGFloat kMaxBottomSize = 16.0;
 + (void)multiline_menubar_update_width;
 @end
 
+@interface MenubarClickHandler : NSObject
+@end
+
+// ---------------------------------------------------------------------------
+// Shared state
+// ---------------------------------------------------------------------------
+
 static NSStatusItem *g_statusItem = nil;
 static MultilineMenubarView *g_menubarView = nil;
 static CGFloat g_topFontSize = 7.0;
 static CGFloat g_bottomFontSize = 12.0;
+static MenubarClickHandler *g_clickHandler = nil;
+static MultilineMenubarClickCallback g_clickCallback = NULL;
+// Application version string shown in the right-click context menu.
+static NSString *g_version = nil;
+
+// ---------------------------------------------------------------------------
+// Click handling
+// ---------------------------------------------------------------------------
+
+// Receives the click from the status bar button and forwards the button kind
+// plus the on-screen rectangle to the registered Rust callback.
+@implementation MenubarClickHandler
+- (void)handleClick:(id)sender {
+  (void)sender;
+  if (!g_statusItem || !g_statusItem.button) {
+    return;
+  }
+
+  NSView *button = g_statusItem.button;
+  NSRect bounds = [button bounds];
+
+  NSEvent *event = [NSApp currentEvent];
+  BOOL isRight = NO;
+  if (event != nil) {
+    NSEventType type = event.type;
+    if (type == NSEventTypeRightMouseDown || type == NSEventTypeRightMouseUp) {
+      isRight = YES;
+    }
+  }
+
+  // Right click opens a native context menu (version + quit). It does not
+  // drive the web popup, so we return early without invoking the callback.
+  if (isRight) {
+    [self showContextMenu:button];
+    return;
+  }
+
+  // Convert the button bounds to window coordinates, then to screen
+  // coordinates. The resulting rect uses the macOS screen space: origin at
+  // the bottom-left, y increasing upward.
+  NSRect frameInWindow = [button convertRect:bounds toView:nil];
+  NSRect frameOnScreen = [[button window] convertRectToScreen:frameInWindow];
+
+  if (g_clickCallback) {
+    g_clickCallback("left", (double)frameOnScreen.origin.x,
+                   (double)frameOnScreen.origin.y,
+                   (double)frameOnScreen.size.width,
+                   (double)frameOnScreen.size.height);
+  }
+}
+
+// Build and present a small context menu anchored at the status item.
+- (void)showContextMenu:(NSView *)button {
+  NSMenu *menu = [[NSMenu alloc] init];
+  menu.autoenablesItems = NO;
+
+  NSString *versionTitle = [NSString stringWithFormat:@"Version %@", g_version ?: @""];
+  NSMenuItem *versionItem = [[NSMenuItem alloc] initWithTitle:versionTitle
+                                                       action:nil
+                                                keyEquivalent:@""];
+  versionItem.enabled = NO;
+  [menu addItem:versionItem];
+
+  [menu addItem:[NSMenuItem separatorItem]];
+
+  NSMenuItem *quitItem = [[NSMenuItem alloc] initWithTitle:@"Quit"
+                                                    action:@selector(quitApp)
+                                             keyEquivalent:@""];
+  quitItem.target = self;
+  [menu addItem:quitItem];
+
+  // Anchor the menu at the top-left of the button; macOS expands it downward.
+  NSPoint point = NSMakePoint(0, NSMaxY(button.bounds));
+  [menu popUpMenuPositioningItem:nil atLocation:point inView:button];
+}
+
+- (void)quitApp {
+  [[NSApplication sharedApplication] terminate:nil];
+}
+@end
+
+void multiline_menubar_set_version(const char *version) {
+  NSString *v = version ? [NSString stringWithUTF8String:version] : @"";
+  g_version = [v copy];
+}
 
 static void ensure_status_item(void) {
   if (g_statusItem) {
@@ -91,6 +183,17 @@ static void ensure_status_item(void) {
   g_menubarView.topFontSize = g_topFontSize;
   g_menubarView.bottomFontSize = g_bottomFontSize;
   [g_statusItem.button addSubview:g_menubarView];
+
+  // Forward clicks (left and right) to the Rust callback.
+  if (!g_clickHandler) {
+    g_clickHandler = [[MenubarClickHandler alloc] init];
+  }
+  g_statusItem.button.target = g_clickHandler;
+  g_statusItem.button.action = @selector(handleClick:);
+  // Respond to both left and right mouse presses so the handler can decide
+  // whether to open the popup (left) or the context menu (right).
+  [g_statusItem.button
+      sendActionOn:(NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown)];
 }
 
 void multiline_menubar_show(void) {
@@ -135,6 +238,18 @@ void multiline_menubar_set_style(double top_size, double bottom_size) {
       [MultilineMenubarView multiline_menubar_update_width];
     }
   });
+}
+
+void multiline_menubar_set_tooltip(const char *tooltip) {
+  NSString *tip = tooltip ? [NSString stringWithUTF8String:tooltip] : @"";
+  dispatch_async(dispatch_get_main_queue(), ^{
+    ensure_status_item();
+    g_statusItem.button.toolTip = tip;
+  });
+}
+
+void multiline_menubar_set_click_handler(MultilineMenubarClickCallback callback) {
+  g_clickCallback = callback;
 }
 
 // Recompute the status item width from the current text and font sizes.

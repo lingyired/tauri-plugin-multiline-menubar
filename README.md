@@ -35,9 +35,21 @@ Add the default capability:
 import {
   show,
   hide,
+  setVisible,
   setText,
   setFontSizes,
+  setTooltip,
+  setPopupWindow,
+  setAutoPopup,
+  openPopup,
+  closePopup,
+  togglePopup,
   isVisible,
+  EVENT_CLICK,
+  EVENT_READY,
+  EVENT_POPUP_OPEN,
+  EVENT_POPUP_CLOSE,
+  listen,
 } from "tauri-plugin-multiline-menubar-api";
 
 await show();
@@ -46,6 +58,12 @@ await setText({ top: "Sensor", bottom: "16W" });
 // Customize the font size (points) for each line. Values are clamped to the
 // supported range on the native side (top: 5–11 pt, bottom: 8–16 pt).
 await setFontSizes({ top: 8, bottom: 14 });
+
+// A left click on the item automatically opens the "popup" window below it.
+// Listen to the click event if you want to drive the popup yourself instead.
+await listen(EVENT_CLICK, (e) => {
+  console.log("clicked", e.payload); // { button, x, y, width, height }
+});
 
 console.log(await isVisible()); // true
 await hide();
@@ -62,6 +80,58 @@ await invoke("plugin:multiline-menubar|set_text", {
 await invoke("plugin:multiline-menubar|show");
 ```
 
+## Popup window
+
+Clicking the menu bar item opens a Tauri WebView window ("popup" by default)
+anchored directly below the item, centered on it. The window is toggled on
+left click and auto-hides when it loses focus — the standard menubar-app
+behaviour.
+
+To use it, define a window in `tauri.conf.json` (the plugin ships with a
+`popup` example window):
+
+```jsonc
+{
+  "label": "popup",
+  "url": "popup.html",
+  "width": 320,
+  "height": 400,
+  "decorations": false,
+  "transparent": true,
+  "alwaysOnTop": true,
+  "visible": false,
+  "skipTaskbar": true
+}
+```
+
+> `transparent: true` needs `"app": { "macOSPrivateApi": true }` in
+> `tauri.conf.json` (and the `macos-private-api` cargo feature) for a clean
+> frosted background on macOS.
+
+Popup-related commands:
+
+| Command | Description |
+| --- | --- |
+| `set_popup_window({ label })` | Choose which window is the popup (default `"popup"`). Call before the first open. |
+| `set_auto_popup({ enabled })` | Toggle automatic popup on left click (default `true`). |
+| `open_popup()` | Show + position the popup below the item. |
+| `close_popup()` | Hide the popup. |
+| `toggle_popup()` | Toggle visibility. |
+
+## API alignment with the Tauri menubar convention
+
+The plugin intentionally mirrors the command/event conventions used by the
+macOS menubar plugin family (e.g. `tauri-plugin-menubar-dnd`):
+
+- It owns its own `NSStatusItem` (like the tray-based menubar plugins), so you
+  drive the icon/text through this plugin instead of Tauri's system tray.
+- Commands use the same naming style: `set_visible`, `set_tooltip`,
+  `set_popup_window`, `open_popup`/`close_popup`/`toggle_popup`.
+- Events are emitted on the `multiline-menubar://` scheme:
+  - `multiline-menubar://ready` — status item created.
+  - `multiline-menubar://click` — `{ button: "left" | "right", x, y, width, height }`.
+  - `multiline-menubar://popup-open` / `multiline-menubar://popup-close` — `{ window }`.
+
 ## How it works
 
 The plugin uses a small Objective-C++ helper that creates an `NSStatusItem` and attaches a custom `NSView`. The view draws two lines of text:
@@ -76,7 +146,14 @@ The font size of each line can be customized independently via `setFontSizes`. V
 - **Top label**: 5–11 pt (default 7)
 - **Bottom value**: 8–16 pt (default 12)
 
+On click, the native helper measures the status item's on-screen rectangle and
+calls back into Rust, which emits the `click` event and (when auto-popup is
+on) positions the popup window below the item using the primary monitor's
+geometry (macOS y grows upward, Tauri y grows downward, so the y axis is
+flipped).
+
 ## Notes
 
 - This plugin creates its own `NSStatusItem`. It does not extend Tauri's built-in system-tray / tray icon.
 - Text color follows `NSColor.textColor`, so it adapts automatically to light / dark mode and accessibility settings.
+- Popup positioning assumes the status item is on the primary monitor.

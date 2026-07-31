@@ -38,6 +38,13 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
         .invoke_handler(tauri::generate_handler![
             commands::set_text,
             commands::set_font_sizes,
+            commands::set_tooltip,
+            commands::set_visible,
+            commands::set_popup_window,
+            commands::set_auto_popup,
+            commands::open_popup,
+            commands::close_popup,
+            commands::toggle_popup,
             commands::show,
             commands::hide,
             commands::is_visible

@@ -6,6 +6,13 @@ Default permissions for the multiline-menubar plugin
 
 - `allow-set-text`
 - `allow-set-font-sizes`
+- `allow-set-tooltip`
+- `allow-set-visible`
+- `allow-set-popup-window`
+- `allow-set-auto-popup`
+- `allow-open-popup`
+- `allow-close-popup`
+- `allow-toggle-popup`
 - `allow-show`
 - `allow-hide`
 - `allow-is-visible`
@@ -18,6 +25,32 @@ Default permissions for the multiline-menubar plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`multiline-menubar:allow-close-popup`
+
+</td>
+<td>
+
+Enables the close_popup command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-close-popup`
+
+</td>
+<td>
+
+Denies the close_popup command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -74,6 +107,58 @@ Denies the is_visible command without any pre-configured scope.
 <tr>
 <td>
 
+`multiline-menubar:allow-open-popup`
+
+</td>
+<td>
+
+Enables the open_popup command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-open-popup`
+
+</td>
+<td>
+
+Denies the open_popup command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:allow-set-auto-popup`
+
+</td>
+<td>
+
+Enables the set_auto_popup command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-set-auto-popup`
+
+</td>
+<td>
+
+Denies the set_auto_popup command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `multiline-menubar:allow-set-font-sizes`
 
 </td>
@@ -93,6 +178,32 @@ Enables the set_font_sizes command without any pre-configured scope.
 <td>
 
 Denies the set_font_sizes command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:allow-set-popup-window`
+
+</td>
+<td>
+
+Enables the set_popup_window command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-set-popup-window`
+
+</td>
+<td>
+
+Denies the set_popup_window command without any pre-configured scope.
 
 </td>
 </tr>
@@ -126,6 +237,58 @@ Denies the set_text command without any pre-configured scope.
 <tr>
 <td>
 
+`multiline-menubar:allow-set-tooltip`
+
+</td>
+<td>
+
+Enables the set_tooltip command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-set-tooltip`
+
+</td>
+<td>
+
+Denies the set_tooltip command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:allow-set-visible`
+
+</td>
+<td>
+
+Enables the set_visible command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-set-visible`
+
+</td>
+<td>
+
+Denies the set_visible command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `multiline-menubar:allow-show`
 
 </td>
@@ -145,6 +308,32 @@ Enables the show command without any pre-configured scope.
 <td>
 
 Denies the show command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:allow-toggle-popup`
+
+</td>
+<td>
+
+Enables the toggle_popup command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-toggle-popup`
+
+</td>
+<td>
+
+Denies the toggle_popup command without any pre-configured scope.
 
 </td>
 </tr>
