@@ -148,7 +148,7 @@ macOS menubar plugin family (e.g. `tauri-plugin-menubar-dnd`):
 > **v3.9 renaming:** the API was aligned with Tauri's `TrayIcon`. Historical
 > names `getRect → rect`, `destroy → remove`, and `show`/`hide` were folded
 > into `setVisible(bool)`. `removeMenu` is retained and `setMenu(null)` detaches
-> the menu. See [`API.md`](../../../API.md) for the full reference.
+> the menu. See [`API.md`](./API.md) for the full reference.
 
 ## How it works
 
