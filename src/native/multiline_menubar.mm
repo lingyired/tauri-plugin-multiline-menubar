@@ -91,6 +91,13 @@ static const CGFloat kMaxBottomSize = 16.0;
            angle:(CGFloat)angle {
   if (text.length == 0) return;
 
+  // Diagnostic: only log when a custom paint is actually in effect, so the
+  // common (default) case stays silent.
+  if (color != nil || gradient != nil) {
+    NSLog(@"[menubar] drawLine text='%@' color:%@ gradient:%@ angle=%.1f",
+          text, color, gradient, angle);
+  }
+
   if (gradient != nil) {
     NSBezierPath *path = textPathForString(text, font);
     if (path != nil) {
@@ -556,7 +563,19 @@ void multiline_menubar_set_color(const char *id, const char *top_json,
     inst.view.bottomGradient = botGrad;
     inst.view.bottomGradientAngle = botAngle;
 
+    // Force a redraw. Unlike set_text/set_style, we don't change the text, so
+    // `updateWidth` (which mutates the status item length/frame) would be a
+    // no-op for the geometry — but assigning `statusItem.length` still makes
+    // NSStatusBarButton re-lay-out and repaint the menu-bar slot. Plain
+    // `[view setNeedsDisplay:]` alone is NOT enough: the status-bar host does
+    // not reliably propagate a subview's dirty flag, so the icon would never
+    // repaint and the new color would be invisible.
     [inst.view setNeedsDisplay:YES];
+    inst.statusItem.button.needsDisplay = YES;
+    [inst updateWidth];
+
+    NSLog(@"[menubar] set_color id=%@ topJson=%@ -> color:%@ grad:%@ | bottomJson=%@ -> color:%@ grad:%@",
+          key, topJson, topColor, topGrad, bottomJson, botColor, botGrad);
   });
 }
 

@@ -803,6 +803,11 @@ impl<R: Runtime> MultilineMenubar<R> {
             let bottom_json = serde_json::to_string(&bottom)
                 .map_err(|e| crate::Error::Menu(e.to_string()))?;
 
+            eprintln!(
+                "[menubar] set_colors: id={} top_json={} bottom_json={}",
+                id, top_json, bottom_json
+            );
+
             let id_c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
             let top_c =
                 CString::new(top_json).map_err(|_| crate::Error::UnsupportedPlatform)?;
