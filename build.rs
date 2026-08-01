@@ -1,8 +1,6 @@
 const COMMANDS: &[&str] = &[
     "create",
-    "destroy",
-    "show",
-    "hide",
+    "remove",
     "set_text",
     "set_font_sizes",
     "set_layout",
@@ -11,7 +9,7 @@ const COMMANDS: &[&str] = &[
     "set_menu",
     "remove_menu",
     "set_colors",
-    "get_rect",
+    "rect",
     "is_visible",
     "set_popup_window",
     "set_auto_popup",

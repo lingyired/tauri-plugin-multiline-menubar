@@ -105,7 +105,8 @@ export type MenuItemDescriptor =
 
 export interface SetMenuOptions {
   id: string
-  items: MenuItemDescriptor[]
+  /** Menu items. Omit or pass `null` to detach the menu. */
+  items?: MenuItemDescriptor[]
 }
 
 /** How a menubar line should be painted. */
@@ -181,16 +182,8 @@ export async function create(options: CreateOptions): Promise<void> {
   return await invoke('plugin:multiline-menubar|create', { payload: options })
 }
 
-export async function destroy(options: IdOptions): Promise<void> {
-  return await invoke('plugin:multiline-menubar|destroy', { payload: options })
-}
-
-export async function show(options: IdOptions): Promise<void> {
-  return await invoke('plugin:multiline-menubar|show', { payload: options })
-}
-
-export async function hide(options: IdOptions): Promise<void> {
-  return await invoke('plugin:multiline-menubar|hide', { payload: options })
+export async function remove(options: IdOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|remove', { payload: options })
 }
 
 export async function setText(options: SetTextOptions): Promise<void> {
@@ -236,7 +229,8 @@ export async function setVisible(options: SetVisibleOptions): Promise<void> {
 
 /**
  * Attach a context menu to an instance, shown on right click directly beneath
- * the menubar item.
+ * the menubar item. Pass `items: null` (or omit it) to detach the menu,
+ * mirroring Tauri's `setMenu(null)` semantics.
  *
  * The menu is a real Tauri/muda menu built on the Rust side from this
  * descriptor. Listen for selections with {@link onMenuSelection} — note that
@@ -276,8 +270,8 @@ export async function removeMenu(options: IdOptions): Promise<void> {
 }
 
 /** Returns the on-screen rectangle of an instance in macOS screen points. */
-export async function getRect(options: IdOptions): Promise<Rect> {
-  return await invoke<Rect>('plugin:multiline-menubar|get_rect', {
+export async function rect(options: IdOptions): Promise<Rect> {
+  return await invoke<Rect>('plugin:multiline-menubar|rect', {
     payload: options,
   })
 }

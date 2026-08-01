@@ -16,21 +16,11 @@ pub(crate) async fn create<R: Runtime>(
 }
 
 #[command]
-pub(crate) async fn destroy<R: Runtime>(
+pub(crate) async fn remove<R: Runtime>(
     app: AppHandle<R>,
-    payload: DestroyRequest,
+    payload: RemoveRequest,
 ) -> crate::Result<()> {
-    app.multiline_menubar().destroy(payload.id)
-}
-
-#[command]
-pub(crate) async fn show<R: Runtime>(app: AppHandle<R>, payload: IdRequest) -> crate::Result<()> {
-    app.multiline_menubar().show(payload.id)
-}
-
-#[command]
-pub(crate) async fn hide<R: Runtime>(app: AppHandle<R>, payload: IdRequest) -> crate::Result<()> {
-    app.multiline_menubar().hide(payload.id)
+    app.multiline_menubar().remove(payload.id)
 }
 
 #[command]
@@ -80,8 +70,10 @@ pub(crate) async fn set_menu<R: Runtime>(
     app: AppHandle<R>,
     payload: SetMenuRequest,
 ) -> crate::Result<()> {
-    app.multiline_menubar()
-        .set_menu(payload.id, payload.items)
+    match payload.items {
+        None => app.multiline_menubar().remove_menu(payload.id),
+        Some(items) => app.multiline_menubar().set_menu(payload.id, items),
+    }
 }
 
 #[command]
@@ -102,11 +94,11 @@ pub(crate) async fn remove_menu<R: Runtime>(
 }
 
 #[command]
-pub(crate) async fn get_rect<R: Runtime>(
+pub(crate) async fn rect<R: Runtime>(
     app: AppHandle<R>,
-    payload: GetRectRequest,
+    payload: RectRequest,
 ) -> crate::Result<Rect> {
-    app.multiline_menubar().get_rect(payload.id)
+    app.multiline_menubar().rect(payload.id)
 }
 
 #[command]

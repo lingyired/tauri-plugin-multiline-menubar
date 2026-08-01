@@ -319,42 +319,6 @@
           "markdownDescription": "Denies the create command without any pre-configured scope."
         },
         {
-          "description": "Enables the destroy command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-destroy",
-          "markdownDescription": "Enables the destroy command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the destroy command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-destroy",
-          "markdownDescription": "Denies the destroy command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the get_rect command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-get-rect",
-          "markdownDescription": "Enables the get_rect command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the get_rect command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-get-rect",
-          "markdownDescription": "Denies the get_rect command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the hide command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-hide",
-          "markdownDescription": "Enables the hide command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the hide command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-hide",
-          "markdownDescription": "Denies the hide command without any pre-configured scope."
-        },
-        {
           "description": "Enables the is_visible command without any pre-configured scope.",
           "type": "string",
           "const": "allow-is-visible",
@@ -377,6 +341,30 @@
           "type": "string",
           "const": "deny-open-popup",
           "markdownDescription": "Denies the open_popup command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the rect command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-rect",
+          "markdownDescription": "Enables the rect command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the rect command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-rect",
+          "markdownDescription": "Denies the rect command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-remove",
+          "markdownDescription": "Enables the remove command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the remove command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-remove",
+          "markdownDescription": "Denies the remove command without any pre-configured scope."
         },
         {
           "description": "Enables the remove_menu command without any pre-configured scope.",
@@ -499,18 +487,6 @@
           "markdownDescription": "Denies the set_visible command without any pre-configured scope."
         },
         {
-          "description": "Enables the show command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-show",
-          "markdownDescription": "Enables the show command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the show command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-show",
-          "markdownDescription": "Denies the show command without any pre-configured scope."
-        },
-        {
           "description": "Enables the toggle_popup command without any pre-configured scope.",
           "type": "string",
           "const": "allow-toggle-popup",
@@ -523,10 +499,10 @@
           "markdownDescription": "Denies the toggle_popup command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the multiline-menubar plugin\n#### This default permission set includes:\n\n- `allow-create`\n- `allow-destroy`\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-layout`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-menu`\n- `allow-remove-menu`\n- `allow-set-colors`\n- `allow-get-rect`\n- `allow-set-popup-window`\n- `allow-set-auto-popup`\n- `allow-open-popup`\n- `allow-close-popup`\n- `allow-toggle-popup`\n- `allow-show`\n- `allow-hide`\n- `allow-is-visible`",
+          "description": "Default permissions for the multiline-menubar plugin\n#### This default permission set includes:\n\n- `allow-create`\n- `allow-remove`\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-layout`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-menu`\n- `allow-remove-menu`\n- `allow-set-colors`\n- `allow-rect`\n- `allow-set-popup-window`\n- `allow-set-auto-popup`\n- `allow-open-popup`\n- `allow-close-popup`\n- `allow-toggle-popup`\n- `allow-is-visible`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the multiline-menubar plugin\n#### This default permission set includes:\n\n- `allow-create`\n- `allow-destroy`\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-layout`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-menu`\n- `allow-remove-menu`\n- `allow-set-colors`\n- `allow-get-rect`\n- `allow-set-popup-window`\n- `allow-set-auto-popup`\n- `allow-open-popup`\n- `allow-close-popup`\n- `allow-toggle-popup`\n- `allow-show`\n- `allow-hide`\n- `allow-is-visible`"
+          "markdownDescription": "Default permissions for the multiline-menubar plugin\n#### This default permission set includes:\n\n- `allow-create`\n- `allow-remove`\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-layout`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-menu`\n- `allow-remove-menu`\n- `allow-set-colors`\n- `allow-rect`\n- `allow-set-popup-window`\n- `allow-set-auto-popup`\n- `allow-open-popup`\n- `allow-close-popup`\n- `allow-toggle-popup`\n- `allow-is-visible`"
         }
       ]
     }

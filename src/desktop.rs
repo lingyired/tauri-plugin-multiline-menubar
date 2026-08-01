@@ -619,7 +619,7 @@ impl<R: Runtime> MultilineMenubar<R> {
         }
     }
 
-    pub fn destroy(&self, id: String) -> crate::Result<()> {
+    pub fn remove(&self, id: String) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
             let c = CString::new(id.as_str()).map_err(|_| crate::Error::UnsupportedPlatform)?;
@@ -643,34 +643,6 @@ impl<R: Runtime> MultilineMenubar<R> {
                     });
                 });
             }
-            return Ok(());
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            let _ = id;
-            Err(crate::Error::UnsupportedPlatform)
-        }
-    }
-
-    pub fn show(&self, id: String) -> crate::Result<()> {
-        #[cfg(target_os = "macos")]
-        {
-            let c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
-            unsafe { multiline_menubar_show(c.as_ptr()) };
-            return Ok(());
-        }
-        #[cfg(not(target_os = "macos"))]
-        {
-            let _ = id;
-            Err(crate::Error::UnsupportedPlatform)
-        }
-    }
-
-    pub fn hide(&self, id: String) -> crate::Result<()> {
-        #[cfg(target_os = "macos")]
-        {
-            let c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
-            unsafe { multiline_menubar_hide(c.as_ptr()) };
             return Ok(());
         }
         #[cfg(not(target_os = "macos"))]
@@ -894,7 +866,7 @@ impl<R: Runtime> MultilineMenubar<R> {
 
     /// Returns the on-screen rectangle of an instance in macOS screen points
     /// (origin bottom-left, y increasing upward).
-    pub fn get_rect(&self, id: String) -> crate::Result<Rect> {
+    pub fn rect(&self, id: String) -> crate::Result<Rect> {
         #[cfg(target_os = "macos")]
         {
             let (x, y, width, height) =
@@ -914,10 +886,20 @@ impl<R: Runtime> MultilineMenubar<R> {
     }
 
     pub fn set_visible(&self, id: String, visible: bool) -> crate::Result<()> {
-        if visible {
-            self.show(id)
-        } else {
-            self.hide(id)
+        #[cfg(target_os = "macos")]
+        {
+            let c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            if visible {
+                unsafe { multiline_menubar_show(c.as_ptr()) };
+            } else {
+                unsafe { multiline_menubar_hide(c.as_ptr()) };
+            }
+            return Ok(());
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (id, visible);
+            Err(crate::Error::UnsupportedPlatform)
         }
     }
 

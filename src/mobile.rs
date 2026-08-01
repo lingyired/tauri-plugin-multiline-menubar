@@ -26,14 +26,6 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 pub struct MultilineMenubar<R: Runtime>(PluginHandle<R>);
 
 impl<R: Runtime> MultilineMenubar<R> {
-    pub fn show(&self) -> crate::Result<()> {
-        Err(crate::Error::UnsupportedPlatform)
-    }
-
-    pub fn hide(&self) -> crate::Result<()> {
-        Err(crate::Error::UnsupportedPlatform)
-    }
-
     pub fn set_text(&self, _top: String, _bottom: String) -> crate::Result<()> {
         Err(crate::Error::UnsupportedPlatform)
     }

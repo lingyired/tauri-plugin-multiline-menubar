@@ -5,7 +5,7 @@ Default permissions for the multiline-menubar plugin
 #### This default permission set includes the following:
 
 - `allow-create`
-- `allow-destroy`
+- `allow-remove`
 - `allow-set-text`
 - `allow-set-font-sizes`
 - `allow-set-layout`
@@ -14,14 +14,12 @@ Default permissions for the multiline-menubar plugin
 - `allow-set-menu`
 - `allow-remove-menu`
 - `allow-set-colors`
-- `allow-get-rect`
+- `allow-rect`
 - `allow-set-popup-window`
 - `allow-set-auto-popup`
 - `allow-open-popup`
 - `allow-close-popup`
 - `allow-toggle-popup`
-- `allow-show`
-- `allow-hide`
 - `allow-is-visible`
 
 ## Permission Table
@@ -88,84 +86,6 @@ Denies the create command without any pre-configured scope.
 <tr>
 <td>
 
-`multiline-menubar:allow-destroy`
-
-</td>
-<td>
-
-Enables the destroy command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`multiline-menubar:deny-destroy`
-
-</td>
-<td>
-
-Denies the destroy command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`multiline-menubar:allow-get-rect`
-
-</td>
-<td>
-
-Enables the get_rect command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`multiline-menubar:deny-get-rect`
-
-</td>
-<td>
-
-Denies the get_rect command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`multiline-menubar:allow-hide`
-
-</td>
-<td>
-
-Enables the hide command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`multiline-menubar:deny-hide`
-
-</td>
-<td>
-
-Denies the hide command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `multiline-menubar:allow-is-visible`
 
 </td>
@@ -211,6 +131,58 @@ Enables the open_popup command without any pre-configured scope.
 <td>
 
 Denies the open_popup command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:allow-rect`
+
+</td>
+<td>
+
+Enables the rect command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-rect`
+
+</td>
+<td>
+
+Denies the rect command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:allow-remove`
+
+</td>
+<td>
+
+Enables the remove command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-remove`
+
+</td>
+<td>
+
+Denies the remove command without any pre-configured scope.
 
 </td>
 </tr>
@@ -471,32 +443,6 @@ Enables the set_visible command without any pre-configured scope.
 <td>
 
 Denies the set_visible command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`multiline-menubar:allow-show`
-
-</td>
-<td>
-
-Enables the show command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`multiline-menubar:deny-show`
-
-</td>
-<td>
-
-Denies the show command without any pre-configured scope.
 
 </td>
 </tr>

@@ -37,9 +37,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("multiline-menubar")
         .invoke_handler(tauri::generate_handler![
             commands::create,
-            commands::destroy,
-            commands::show,
-            commands::hide,
+            commands::remove,
             commands::set_text,
             commands::set_font_sizes,
             commands::set_layout,
@@ -48,7 +46,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::set_menu,
             commands::remove_menu,
             commands::set_colors,
-            commands::get_rect,
+            commands::rect,
             commands::is_visible,
             commands::set_popup_window,
             commands::set_auto_popup,

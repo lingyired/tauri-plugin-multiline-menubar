@@ -48,7 +48,7 @@ pub struct CreateRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DestroyRequest {
+pub struct RemoveRequest {
     pub id: String,
 }
 
@@ -102,7 +102,10 @@ pub struct SetVisibleRequest {
 #[serde(rename_all = "camelCase")]
 pub struct SetMenuRequest {
     pub id: String,
-    pub items: Vec<MenuItemDescriptor>,
+    /// Menu items. Omit (or send `null`) to detach the menu, mirroring
+    /// Tauri's `setMenu(null)` semantics.
+    #[serde(default)]
+    pub items: Option<Vec<MenuItemDescriptor>>,
 }
 
 /// How the text of a menubar line should be painted.
@@ -126,7 +129,7 @@ pub struct SetColorsRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetRectRequest {
+pub struct RectRequest {
     pub id: String,
 }
 
