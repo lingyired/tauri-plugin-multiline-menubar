@@ -33,31 +33,41 @@ Add the default capability:
 
 ```ts
 import {
-  show,
-  hide,
+  create,
+  remove,
   setVisible,
   setText,
   setFontSizes,
+  setLayout,
   setTooltip,
+  setColors,
+  setMenu,
+  removeMenu,
+  onMenuSelection,
   setPopupWindow,
   setAutoPopup,
   openPopup,
   closePopup,
   togglePopup,
   isVisible,
+  rect,
   EVENT_CLICK,
   EVENT_READY,
   EVENT_POPUP_OPEN,
   EVENT_POPUP_CLOSE,
   listen,
-} from "tauri-plugin-multiline-menubar-api";
+} from "tauri-plugin-multiline-menubar";
 
-await show();
-await setText({ top: "Sensor", bottom: "16W" });
+await create({ id: "main" });
+await setText({ id: "main", top: "Sensor", bottom: "16W" });
 
 // Customize the font size (points) for each line. Values are clamped to the
-// supported range on the native side (top: 5–11 pt, bottom: 8–16 pt).
-await setFontSizes({ top: 8, bottom: 14 });
+// supported range on the native side (small 5–11 pt, large 8–16 pt).
+await setFontSizes({ id: "main", top: 8, bottom: 14 });
+
+// Choose the vertical layout: 0 = small label on top / large value below
+// (default), 1 = the mirror, 2 = equal lines.
+await setLayout({ id: "main", layout: 1 });
 
 // A left click on the item automatically opens the "popup" window below it.
 // Listen to the click event if you want to drive the popup yourself instead.
@@ -65,8 +75,8 @@ await listen(EVENT_CLICK, (e) => {
   console.log("clicked", e.payload); // { button, x, y, width, height }
 });
 
-console.log(await isVisible()); // true
-await hide();
+console.log(await isVisible({ id: "main" })); // true
+await setVisible({ id: "main", visible: false }); // was: hide()
 ```
 
 You can also call the commands directly with `@tauri-apps/api/core`:
@@ -75,9 +85,12 @@ You can also call the commands directly with `@tauri-apps/api/core`:
 import { invoke } from "@tauri-apps/api/core";
 
 await invoke("plugin:multiline-menubar|set_text", {
-  payload: { top: "Sensor", bottom: "16W" },
+  payload: { id: "main", top: "Sensor", bottom: "16W" },
 });
-await invoke("plugin:multiline-menubar|show");
+// Show/hide is a single setVisible(bool) command:
+await invoke("plugin:multiline-menubar|set_visible", {
+  payload: { id: "main", visible: true },
+});
 ```
 
 ## Popup window
@@ -131,6 +144,11 @@ macOS menubar plugin family (e.g. `tauri-plugin-menubar-dnd`):
   - `multiline-menubar://ready` — status item created.
   - `multiline-menubar://click` — `{ button: "left" | "right", x, y, width, height }`.
   - `multiline-menubar://popup-open` / `multiline-menubar://popup-close` — `{ window }`.
+
+> **v3.9 renaming:** the API was aligned with Tauri's `TrayIcon`. Historical
+> names `getRect → rect`, `destroy → remove`, and `show`/`hide` were folded
+> into `setVisible(bool)`. `removeMenu` is retained and `setMenu(null)` detaches
+> the menu. See [`API.md`](../../../API.md) for the full reference.
 
 ## How it works
 
