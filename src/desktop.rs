@@ -93,6 +93,17 @@ static POPUP_IGNORE_BLUR_UNTIL: Mutex<Option<Instant>> = Mutex::new(None);
 /// Ensures the popup auto-hide handler is attached only once.
 static POPUP_HANDLER_ATTACHED: Mutex<bool> = Mutex::new(false);
 
+/// Last top/bottom text set per instance, so the popup can be pre-filled with
+/// the values of whichever instance opened it (rather than showing static
+/// placeholder content).
+static INSTANCE_TEXT: Mutex<Option<HashMap<String, (String, String)>>> = Mutex::new(None);
+
+/// Event name used to tell the popup window which instance opened it and what
+/// that instance's current text is. Delivered with `emit_to` so only the popup
+/// window receives it.
+#[cfg(target_os = "macos")]
+const POPUP_OPEN_TARGET_EVENT: &str = "multiline-menubar://popup//open";
+
 // ---------------------------------------------------------------------------
 // Native callbacks
 // ---------------------------------------------------------------------------
@@ -400,6 +411,21 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
             format!("multiline-menubar://{}//popup-open", id).as_str(),
             serde_json::json!({ "id": id, "window": label }),
         );
+
+        // Tell the popup window which instance opened it and what that
+        // instance's current text is, so it can show instance-specific content
+        // instead of static placeholder values.
+        let text = INSTANCE_TEXT
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|m| m.get(id).cloned())
+            .unwrap_or_default();
+        let _ = app.emit_to(
+            &label,
+            POPUP_OPEN_TARGET_EVENT,
+            serde_json::json!({ "id": id, "top": text.0, "bottom": text.1 }),
+        );
     }
     Ok(())
 }
@@ -556,6 +582,9 @@ impl<R: Runtime> MultilineMenubar<R> {
             let c = CString::new(id.as_str()).map_err(|_| crate::Error::UnsupportedPlatform)?;
             unsafe { multiline_menubar_destroy(c.as_ptr()) };
             unregister_menu_owners(&id);
+            if let Some(map) = INSTANCE_TEXT.lock().unwrap().as_mut() {
+                map.remove(&id);
+            }
 
             // Drop the menu on the main thread, where it was created.
             if let Some(app) = APP_HANDLE.get() {
@@ -605,6 +634,13 @@ impl<R: Runtime> MultilineMenubar<R> {
     pub fn set_text(&self, id: String, top: String, bottom: String) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
+            // Remember the text so the popup can show this instance's values.
+            INSTANCE_TEXT
+                .lock()
+                .unwrap()
+                .get_or_insert_with(HashMap::new)
+                .insert(id.clone(), (top.clone(), bottom.clone()));
+
             let id_c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
             let top_c = CString::new(top).map_err(|_| crate::Error::UnsupportedPlatform)?;
             let bottom_c = CString::new(bottom).map_err(|_| crate::Error::UnsupportedPlatform)?;
