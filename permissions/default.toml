@@ -1,3 +1,3 @@
 [default]
 description = "Default permissions for the multiline-menubar plugin"
-permissions = ["allow-create", "allow-destroy", "allow-set-text", "allow-set-font-sizes", "allow-set-tooltip", "allow-set-visible", "allow-set-menu", "allow-remove-menu", "allow-set-colors", "allow-get-rect", "allow-set-popup-window", "allow-set-auto-popup", "allow-open-popup", "allow-close-popup", "allow-toggle-popup", "allow-show", "allow-hide", "allow-is-visible"]
+permissions = ["allow-create", "allow-destroy", "allow-set-text", "allow-set-font-sizes", "allow-set-layout", "allow-set-tooltip", "allow-set-visible", "allow-set-menu", "allow-remove-menu", "allow-set-colors", "allow-get-rect", "allow-set-popup-window", "allow-set-auto-popup", "allow-open-popup", "allow-close-popup", "allow-toggle-popup", "allow-show", "allow-hide", "allow-is-visible"]

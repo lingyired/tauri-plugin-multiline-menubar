@@ -27,6 +27,17 @@ export interface FontSizesOptions {
   bottom: number
 }
 
+export interface LayoutOptions {
+  id: string
+  /**
+   * Vertical layout:
+   * - `0` (emphasis-bottom, default): small label on top (light weight), large value below (regular weight).
+   * - `1` (emphasis-top): the vertical mirror — large value on top, small label below.
+   * - `2` (equal): both lines share one size, vertically centered & symmetric.
+   */
+  layout: number
+}
+
 export interface TooltipOptions {
   id: string
   tooltip: string
@@ -56,9 +67,24 @@ export interface VisibilityResult {
   visible: boolean
 }
 
-/** A menu item descriptor. The `id` becomes the menu item's `MenuId`, and is
- *  reported back as `itemId` on the instance's `menu` event (and to Tauri's
- *  global `on_menu_event` on the Rust side). */
+/**
+ * Supported font-size range (points) for the two roles. The asymmetric layouts
+ * store one size per *role*; in `emphasis-bottom` the top line is `small` and
+ * the bottom is `large`, reversed in `emphasis-top`. Values passed to
+ * setFontSizes are clamped to these bounds on the native side based on the
+ * role each line currently plays.
+ */
+export const FONT_SIZE_RANGE = {
+  small: { min: 5, max: 11 },
+  large: { min: 8, max: 16 },
+  equal: { min: 5, max: 11 },
+} as const
+
+/**
+ * A menu item descriptor. The `id` becomes the menu item's `MenuId`, and is
+ * reported back as `itemId` on the instance's `menu` event (and to Tauri's
+ * global `on_menu_event` on the Rust side).
+ */
 export type MenuItemDescriptor =
   | {
       type: 'item'
@@ -89,9 +115,9 @@ export type ColorStyle =
 
 export interface SetColorsOptions {
   id: string
-  /** Paint for the top (small) line. */
+  /** Paint for the top line. */
   top: ColorStyle
-  /** Paint for the bottom (large) line. */
+  /** Paint for the bottom line. */
   bottom: ColorStyle
 }
 
@@ -147,15 +173,6 @@ export const EVENT_POPUP_OPEN = (id: string) => eventName(id, 'popup-open')
 export const EVENT_POPUP_CLOSE = (id: string) => eventName(id, 'popup-close')
 export const EVENT_MENU = (id: string) => eventName(id, 'menu')
 
-/**
- * Supported font-size range (points) for the two lines.
- * Values passed to setFontSizes are clamped to these bounds on the native side.
- */
-export const FONT_SIZE_RANGE = {
-  top: { min: 5, max: 11 },
-  bottom: { min: 8, max: 16 },
-} as const
-
 // ---------------------------------------------------------------------------
 // Commands
 // ---------------------------------------------------------------------------
@@ -184,6 +201,25 @@ export async function setFontSizes(options: FontSizesOptions): Promise<void> {
   return await invoke('plugin:multiline-menubar|set_font_sizes', {
     payload: options,
   })
+}
+
+/**
+ * Choose the vertical layout for an instance.
+ *
+ * - `0` (emphasis-bottom, default): Stats-style — small label on top (light
+ *   weight), larger value below (regular weight).
+ * - `1` (emphasis-top): the vertical mirror — large value on top (regular
+ *   weight), small label below (light weight).
+ * - `2` (equal): both lines share one font size, vertically centered and
+ *   symmetric.
+ *
+ * Sizes are stored per *role* (emphasized vs de-emphasized), so switching
+ * between the two asymmetric layouts mirrors the item without losing either
+ * size, and the equal layout keeps its own remembered size. In equal mode pass
+ * equal `top` and `bottom` to {@link setFontSizes}.
+ */
+export async function setLayout(options: LayoutOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|set_layout', { payload: options })
 }
 
 export async function setTooltip(options: TooltipOptions): Promise<void> {

@@ -65,6 +65,19 @@ void multiline_menubar_set_style(const char *id, double top_size,
                                  double bottom_size);
 
 /**
+ * Switch the vertical layout of a menubar instance.
+ *
+ * @param layout  0 = stacked (default): a small light label on top and a
+ *                larger regular value below (Stats-style).
+ *                1 = balanced: both lines share a single font size and are
+ *                vertically centered and symmetric.
+ *
+ * In balanced mode `multiline_menubar_set_style` clamps both lines to one
+ * shared range, so callers should pass equal top/bottom sizes.
+ */
+void multiline_menubar_set_layout(const char *id, int layout);
+
+/**
  * Set the text color(s) for the top and bottom lines.
  *
  * Each `top_json` / `bottom_json` argument is a small JSON object describing

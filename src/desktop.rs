@@ -29,6 +29,7 @@ extern "C" {
     fn multiline_menubar_hide(id: *const c_char);
     fn multiline_menubar_set_text(id: *const c_char, top: *const c_char, bottom: *const c_char);
     fn multiline_menubar_set_style(id: *const c_char, top_size: f64, bottom_size: f64);
+    fn multiline_menubar_set_layout(id: *const c_char, layout: std::os::raw::c_int);
     fn multiline_menubar_set_tooltip(id: *const c_char, tooltip: *const c_char);
     fn multiline_menubar_set_menu(id: *const c_char, ns_menu: *mut std::ffi::c_void);
     fn multiline_menubar_set_color(
@@ -106,6 +107,10 @@ static INSTANCE_TEXT: Mutex<Option<HashMap<String, (String, String)>>> = Mutex::
 /// Last top/bottom font size set per instance, so the popup can pre-fill its
 /// font-size sliders with the values of whichever instance opened it.
 static INSTANCE_STYLE: Mutex<Option<HashMap<String, (f64, f64)>>> = Mutex::new(None);
+
+/// Last layout mode per instance (0 = stacked, 1 = balanced), so the popup can
+/// pre-select which layout the opened instance uses.
+static INSTANCE_LAYOUT: Mutex<Option<HashMap<String, i32>>> = Mutex::new(None);
 
 /// Event name used to tell the popup window which instance opened it and what
 /// that instance's current text is. Delivered with `emit_to` so only the popup
@@ -436,6 +441,12 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
             .as_ref()
             .and_then(|m| m.get(id).copied())
             .unwrap_or((7.0, 12.0));
+        let layout = INSTANCE_LAYOUT
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|m| m.get(id).copied())
+            .unwrap_or(0);
         let _ = app.emit_to(
             &label,
             POPUP_OPEN_TARGET_EVENT,
@@ -444,7 +455,8 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
                 "top": text.0,
                 "bottom": text.1,
                 "topSize": style.0,
-                "bottomSize": style.1
+                "bottomSize": style.1,
+                "layout": layout
             }),
         );
     }
@@ -619,6 +631,9 @@ impl<R: Runtime> MultilineMenubar<R> {
             if let Some(map) = INSTANCE_STYLE.lock().unwrap().as_mut() {
                 map.remove(&id);
             }
+            if let Some(map) = INSTANCE_LAYOUT.lock().unwrap().as_mut() {
+                map.remove(&id);
+            }
 
             // Drop the menu on the main thread, where it was created.
             if let Some(app) = APP_HANDLE.get() {
@@ -708,6 +723,36 @@ impl<R: Runtime> MultilineMenubar<R> {
         #[cfg(not(target_os = "macos"))]
         {
             let _ = (id, top, bottom);
+            Err(crate::Error::UnsupportedPlatform)
+        }
+    }
+
+    /// Choose the vertical layout for an instance. The two asymmetric modes
+    /// are exact vertical mirrors that keep the emphasized (large, regular
+    /// weight) and de-emphasized (small, light weight) lines, only swapping
+    /// which one is on top:
+    ///   * 0 = emphasis-bottom (default): small label on top, large value below.
+    ///   * 1 = emphasis-top: the mirror — large value on top, small label below.
+    ///   * 2 = equal: both lines share one size, vertically centered & symmetric.
+    /// Sizes are stored per role, so switching layouts never loses a value,
+    /// and the chosen layout is remembered per instance so the popup can
+    /// pre-select it on open.
+    pub fn set_layout(&self, id: String, layout: i32) -> crate::Result<()> {
+        #[cfg(target_os = "macos")]
+        {
+            INSTANCE_LAYOUT
+                .lock()
+                .unwrap()
+                .get_or_insert_with(HashMap::new)
+                .insert(id.clone(), layout);
+
+            let c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            unsafe { multiline_menubar_set_layout(c.as_ptr(), layout as std::os::raw::c_int) };
+            return Ok(());
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (id, layout);
             Err(crate::Error::UnsupportedPlatform)
         }
     }

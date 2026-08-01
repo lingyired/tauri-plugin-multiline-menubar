@@ -42,6 +42,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             commands::hide,
             commands::set_text,
             commands::set_font_sizes,
+            commands::set_layout,
             commands::set_tooltip,
             commands::set_visible,
             commands::set_menu,

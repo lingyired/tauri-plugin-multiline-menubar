@@ -5,6 +5,7 @@ const COMMANDS: &[&str] = &[
     "hide",
     "set_text",
     "set_font_sizes",
+    "set_layout",
     "set_tooltip",
     "set_visible",
     "set_menu",

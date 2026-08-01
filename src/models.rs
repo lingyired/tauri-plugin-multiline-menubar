@@ -76,6 +76,16 @@ pub struct FontSizesRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct LayoutRequest {
+    pub id: String,
+    /// 0 = emphasis-bottom (default, small label on top / large value below),
+    /// 1 = emphasis-top (the vertical mirror), 2 = equal (both lines share one
+    /// size, vertically centered & symmetric).
+    pub layout: i32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TooltipRequest {
     pub id: String,
     pub tooltip: String,

@@ -52,6 +52,14 @@ pub(crate) async fn set_font_sizes<R: Runtime>(
 }
 
 #[command]
+pub(crate) async fn set_layout<R: Runtime>(
+    app: AppHandle<R>,
+    payload: LayoutRequest,
+) -> crate::Result<()> {
+    app.multiline_menubar().set_layout(payload.id, payload.layout)
+}
+
+#[command]
 pub(crate) async fn set_tooltip<R: Runtime>(
     app: AppHandle<R>,
     payload: TooltipRequest,

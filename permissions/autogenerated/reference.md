@@ -8,6 +8,7 @@ Default permissions for the multiline-menubar plugin
 - `allow-destroy`
 - `allow-set-text`
 - `allow-set-font-sizes`
+- `allow-set-layout`
 - `allow-set-tooltip`
 - `allow-set-visible`
 - `allow-set-menu`
@@ -314,6 +315,32 @@ Enables the set_font_sizes command without any pre-configured scope.
 <td>
 
 Denies the set_font_sizes command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:allow-set-layout`
+
+</td>
+<td>
+
+Enables the set_layout command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-set-layout`
+
+</td>
+<td>
+
+Denies the set_layout command without any pre-configured scope.
 
 </td>
 </tr>
