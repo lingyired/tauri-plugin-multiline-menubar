@@ -9,6 +9,7 @@ const COMMANDS: &[&str] = &[
     "set_visible",
     "set_menu",
     "remove_menu",
+    "set_colors",
     "get_rect",
     "is_visible",
     "set_popup_window",
@@ -34,6 +35,7 @@ fn main() {
             .compile("multiline_menubar_native");
 
         println!("cargo:rustc-link-lib=framework=Cocoa");
+        println!("cargo:rustc-link-lib=framework=CoreText");
         println!("cargo:rustc-link-lib=c++");
     }
 }

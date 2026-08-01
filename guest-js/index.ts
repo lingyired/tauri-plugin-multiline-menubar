@@ -82,6 +82,20 @@ export interface SetMenuOptions {
   items: MenuItemDescriptor[]
 }
 
+/** How a menubar line should be painted. */
+export type ColorStyle =
+  | { type: 'default' }
+  | { type: 'solid'; value: string }
+  | { type: 'gradient'; from: string; to: string; angle?: number }
+
+export interface SetColorsOptions {
+  id: string
+  /** Paint for the top (small) line. */
+  top: ColorStyle
+  /** Paint for the bottom (large) line. */
+  bottom: ColorStyle
+}
+
 export interface ClickEvent {
   id: string
   position: { x: number; y: number }
@@ -229,6 +243,18 @@ export async function removeMenu(options: IdOptions): Promise<void> {
 /** Returns the on-screen rectangle of an instance in macOS screen points. */
 export async function getRect(options: IdOptions): Promise<Rect> {
   return await invoke<Rect>('plugin:multiline-menubar|get_rect', {
+    payload: options,
+  })
+}
+
+/**
+ * Set the text paint for the top and bottom lines of an instance. Each line
+ * accepts a {@link ColorStyle}: `default` (system color, follows dark mode),
+ * `solid` (`#rrggbb`), or `gradient` (`from`/`to` hex + optional `angle` in
+ * degrees, where 0 = left→right and 90 = bottom→top).
+ */
+export async function setColors(options: SetColorsOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|set_colors', {
     payload: options,
   })
 }

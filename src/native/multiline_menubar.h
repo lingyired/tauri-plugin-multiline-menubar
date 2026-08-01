@@ -65,6 +65,23 @@ void multiline_menubar_set_style(const char *id, double top_size,
                                  double bottom_size);
 
 /**
+ * Set the text color(s) for the top and bottom lines.
+ *
+ * Each `top_json` / `bottom_json` argument is a small JSON object describing
+ * the paint for that line:
+ *   - `{"type":"default"}`        system `textColor` (follows dark mode)
+ *   - `{"type":"solid","value":"#rrggbb"}`
+ *   - `{"type":"gradient","from":"#rrggbb","to":"#rrggbb","angle":90}`
+ *     (`angle` in degrees, NSGradient convention: 0 = left→right,
+ *      90 = bottom→top).
+ *
+ * An empty or NULL string is treated as `default`. Gradient text is rendered
+ * by clipping to the glyph outline and filling with an `NSGradient`.
+ */
+void multiline_menubar_set_color(const char *id, const char *top_json,
+                                 const char *bottom_json);
+
+/**
  * Set the tooltip shown when hovering the menubar item. Pass NULL to clear.
  */
 void multiline_menubar_set_tooltip(const char *id, const char *tooltip);

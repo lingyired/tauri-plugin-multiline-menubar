@@ -31,6 +31,11 @@ extern "C" {
     fn multiline_menubar_set_style(id: *const c_char, top_size: f64, bottom_size: f64);
     fn multiline_menubar_set_tooltip(id: *const c_char, tooltip: *const c_char);
     fn multiline_menubar_set_menu(id: *const c_char, ns_menu: *mut std::ffi::c_void);
+    fn multiline_menubar_set_color(
+        id: *const c_char,
+        top: *const c_char,
+        bottom: *const c_char,
+    );
     fn multiline_menubar_get_rect(
         id: *const c_char,
         x: *mut f64,
@@ -778,6 +783,39 @@ impl<R: Runtime> MultilineMenubar<R> {
         #[cfg(not(target_os = "macos"))]
         {
             let _ = id;
+            Err(crate::Error::UnsupportedPlatform)
+        }
+    }
+
+    /// Set the text paint for the top and bottom lines. `top`/`bottom` are
+    /// `ColorStyle` values; they are serialized to the small JSON shape the
+    /// native layer parses (`{"type":"default"|"solid"|"gradient", ...}`).
+    pub fn set_colors(
+        &self,
+        id: String,
+        top: crate::models::ColorStyle,
+        bottom: crate::models::ColorStyle,
+    ) -> crate::Result<()> {
+        #[cfg(target_os = "macos")]
+        {
+            let top_json =
+                serde_json::to_string(&top).map_err(|e| crate::Error::Menu(e.to_string()))?;
+            let bottom_json = serde_json::to_string(&bottom)
+                .map_err(|e| crate::Error::Menu(e.to_string()))?;
+
+            let id_c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            let top_c =
+                CString::new(top_json).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            let bottom_c =
+                CString::new(bottom_json).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            unsafe {
+                multiline_menubar_set_color(id_c.as_ptr(), top_c.as_ptr(), bottom_c.as_ptr());
+            }
+            return Ok(());
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (id, top, bottom);
             Err(crate::Error::UnsupportedPlatform)
         }
     }

@@ -12,6 +12,7 @@ Default permissions for the multiline-menubar plugin
 - `allow-set-visible`
 - `allow-set-menu`
 - `allow-remove-menu`
+- `allow-set-colors`
 - `allow-get-rect`
 - `allow-set-popup-window`
 - `allow-set-auto-popup`
@@ -261,6 +262,32 @@ Enables the set_auto_popup command without any pre-configured scope.
 <td>
 
 Denies the set_auto_popup command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:allow-set-colors`
+
+</td>
+<td>
+
+Enables the set_colors command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-set-colors`
+
+</td>
+<td>
+
+Denies the set_colors command without any pre-configured scope.
 
 </td>
 </tr>

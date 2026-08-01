@@ -403,6 +403,18 @@
           "markdownDescription": "Denies the set_auto_popup command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_colors command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-colors",
+          "markdownDescription": "Enables the set_colors command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_colors command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-colors",
+          "markdownDescription": "Denies the set_colors command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_font_sizes command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-font-sizes",
@@ -499,10 +511,10 @@
           "markdownDescription": "Denies the toggle_popup command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the multiline-menubar plugin\n#### This default permission set includes:\n\n- `allow-create`\n- `allow-destroy`\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-menu`\n- `allow-remove-menu`\n- `allow-get-rect`\n- `allow-set-popup-window`\n- `allow-set-auto-popup`\n- `allow-open-popup`\n- `allow-close-popup`\n- `allow-toggle-popup`\n- `allow-show`\n- `allow-hide`\n- `allow-is-visible`",
+          "description": "Default permissions for the multiline-menubar plugin\n#### This default permission set includes:\n\n- `allow-create`\n- `allow-destroy`\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-menu`\n- `allow-remove-menu`\n- `allow-set-colors`\n- `allow-get-rect`\n- `allow-set-popup-window`\n- `allow-set-auto-popup`\n- `allow-open-popup`\n- `allow-close-popup`\n- `allow-toggle-popup`\n- `allow-show`\n- `allow-hide`\n- `allow-is-visible`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the multiline-menubar plugin\n#### This default permission set includes:\n\n- `allow-create`\n- `allow-destroy`\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-menu`\n- `allow-remove-menu`\n- `allow-get-rect`\n- `allow-set-popup-window`\n- `allow-set-auto-popup`\n- `allow-open-popup`\n- `allow-close-popup`\n- `allow-toggle-popup`\n- `allow-show`\n- `allow-hide`\n- `allow-is-visible`"
+          "markdownDescription": "Default permissions for the multiline-menubar plugin\n#### This default permission set includes:\n\n- `allow-create`\n- `allow-destroy`\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-menu`\n- `allow-remove-menu`\n- `allow-set-colors`\n- `allow-get-rect`\n- `allow-set-popup-window`\n- `allow-set-auto-popup`\n- `allow-open-popup`\n- `allow-close-popup`\n- `allow-toggle-popup`\n- `allow-show`\n- `allow-hide`\n- `allow-is-visible`"
         }
       ]
     }

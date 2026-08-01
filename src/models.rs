@@ -95,6 +95,37 @@ pub struct SetMenuRequest {
     pub items: Vec<MenuItemDescriptor>,
 }
 
+/// How the text of a menubar line should be painted.
+///
+/// `default` keeps the system `textColor` (follows light/dark mode). `solid`
+/// uses a single hex color. `gradient` fills the glyphs with a linear
+/// `NSGradient` (angle in degrees, NSGradient convention: 0 = left→right,
+/// 90 = bottom→top).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum ColorStyle {
+    Default,
+    Solid { value: String },
+    Gradient {
+        from: String,
+        to: String,
+        #[serde(default = "default_gradient_angle")]
+        angle: f64,
+    },
+}
+
+fn default_gradient_angle() -> f64 {
+    90.0
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetColorsRequest {
+    pub id: String,
+    pub top: ColorStyle,
+    pub bottom: ColorStyle,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetRectRequest {

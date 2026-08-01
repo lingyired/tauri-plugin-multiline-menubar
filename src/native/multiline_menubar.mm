@@ -1,5 +1,14 @@
 #import <Cocoa/Cocoa.h>
+#import <CoreText/CoreText.h>
+#include <vector>
 #include "multiline_menubar.h"
+
+// Forward declarations for the file-local color/gradient helpers defined
+// further down (after the view implementation).
+static NSColor *color_from_hex(NSString *hex);
+static void parse_color_style(NSString *json, NSColor **outColor,
+                              NSGradient **outGradient, CGFloat *outAngle);
+static NSBezierPath *textPathForString(NSString *string, NSFont *font);
 
 // Supported font-size range (points). The menu bar is only ~22pt tall, so the
 // two lines must stay small enough to avoid overlapping.
@@ -17,6 +26,14 @@ static const CGFloat kMaxBottomSize = 16.0;
 @property (copy) NSString *bottomText;
 @property CGFloat topFontSize;
 @property CGFloat bottomFontSize;
+// Per-line text paint. `nil` color + `nil` gradient => system `textColor`.
+// A non-nil gradient takes precedence over the solid color.
+@property (copy, nonatomic) NSColor *topColor;
+@property (strong, nonatomic) NSGradient *topGradient;
+@property CGFloat topGradientAngle;
+@property (copy, nonatomic) NSColor *bottomColor;
+@property (strong, nonatomic) NSGradient *bottomGradient;
+@property CGFloat bottomGradientAngle;
 @end
 
 @implementation MultilineMenubarView
@@ -35,36 +52,187 @@ static const CGFloat kMaxBottomSize = 16.0;
 - (void)drawRect:(NSRect)dirtyRect {
   [super drawRect:dirtyRect];
 
-  // NSColor.textColor automatically follows light/dark mode and
-  // accessibility settings such as high contrast.
-  NSColor *textColor = [NSColor textColor];
-
   // Top label
   if (self.topText.length > 0) {
-    NSDictionary *topAttributes = @{
-      NSFontAttributeName : [NSFont systemFontOfSize:self.topFontSize
-                                              weight:NSFontWeightLight],
-      NSForegroundColorAttributeName : textColor,
-    };
+    NSFont *topFont = [NSFont systemFontOfSize:self.topFontSize
+                                         weight:NSFontWeightLight];
     NSRect topRect = NSMakeRect(0, 12, self.bounds.size.width, self.topFontSize + 1);
-    [self.topText drawWithRect:topRect
-                       options:NSStringDrawingUsesLineFragmentOrigin
-                    attributes:topAttributes];
+    [self drawLine:self.topText
+              font:topFont
+              rect:topRect
+             color:self.topColor
+         gradient:self.topGradient
+             angle:self.topGradientAngle];
   }
 
   // Bottom value
-  NSDictionary *bottomAttributes = @{
-    NSFontAttributeName : [NSFont systemFontOfSize:self.bottomFontSize
-                                            weight:NSFontWeightRegular],
-    NSForegroundColorAttributeName : textColor,
+  if (self.bottomText.length > 0) {
+    NSFont *bottomFont = [NSFont systemFontOfSize:self.bottomFontSize
+                                           weight:NSFontWeightRegular];
+    NSRect bottomRect = NSMakeRect(0, 1, self.bounds.size.width, self.bottomFontSize + 1);
+    [self drawLine:self.bottomText
+              font:bottomFont
+              rect:bottomRect
+             color:self.bottomColor
+         gradient:self.bottomGradient
+             angle:self.bottomGradientAngle];
+  }
+}
+
+/// Draw a single line of text, painted either with a solid `NSColor` or, when
+/// `gradient` is non-nil, by clipping to the glyph outline and filling it with
+/// the `NSGradient`. With neither set, the system `textColor` is used (which
+/// follows light/dark mode automatically).
+- (void)drawLine:(NSString *)text
+            font:(NSFont *)font
+            rect:(NSRect)rect
+           color:(NSColor *)color
+        gradient:(NSGradient *)gradient
+           angle:(CGFloat)angle {
+  if (text.length == 0) return;
+
+  if (gradient != nil) {
+    NSBezierPath *path = textPathForString(text, font);
+    if (path != nil) {
+      // Position the glyph path: its origin is the baseline, so translate it
+      // to the line's baseline (rect bottom + font ascender).
+      CGFloat baseline = rect.origin.y + font.ascender;
+      NSAffineTransform *t = [NSAffineTransform transform];
+      [t translateXBy:rect.origin.x yBy:baseline];
+      [path transformUsingAffineTransform:t];
+
+      // Fill a rect that tightly bounds the glyphs (with a small margin so the
+      // baseline approximation never clips a sliver off the top/bottom).
+      NSRect fillRect = NSInsetRect(path.bounds, 0, -2);
+      [NSGraphicsContext saveGraphicsState];
+      [path addClip];
+      [gradient drawInRect:fillRect angle:angle];
+      [NSGraphicsContext restoreGraphicsState];
+      return;
+    }
+    // Empty path (no renderable glyphs) — fall through to solid paint.
+  }
+
+  NSColor *fg = color ? color : [NSColor textColor];
+  NSDictionary *attrs = @{
+    NSFontAttributeName : font,
+    NSForegroundColorAttributeName : fg,
   };
-  NSRect bottomRect = NSMakeRect(0, 1, self.bounds.size.width, self.bottomFontSize + 1);
-  [self.bottomText drawWithRect:bottomRect
-                        options:NSStringDrawingUsesLineFragmentOrigin
-                     attributes:bottomAttributes];
+  [text drawWithRect:rect
+              options:NSStringDrawingUsesLineFragmentOrigin
+           attributes:attrs];
 }
 
 @end
+
+// ---------------------------------------------------------------------------
+// Color / gradient helpers
+// ---------------------------------------------------------------------------
+
+/// Parse a hex color (`#rgb`, `#rrggbb`, or `#rrggbbaa`) into an `NSColor`.
+/// Returns nil for empty/invalid input so the caller can fall back to the
+/// system text color.
+static NSColor *color_from_hex(NSString *hex) {
+  if (hex.length == 0) return nil;
+  NSMutableString *s = [hex mutableCopy];
+  [s replaceOccurrencesOfString:@"#"
+                       withString:@""
+                          options:0
+                            range:NSMakeRange(0, s.length)];
+  if (s.length == 3) {
+    NSString *r = [s substringWithRange:NSMakeRange(0, 1)];
+    NSString *g = [s substringWithRange:NSMakeRange(1, 1)];
+    NSString *b = [s substringWithRange:NSMakeRange(2, 1)];
+    s = [NSMutableString stringWithFormat:@"%@%@%@%@%@%@", r, r, g, g, b, b];
+  }
+  if (s.length != 6 && s.length != 8) return nil;
+
+  unsigned int value = 0;
+  if (![[NSScanner scannerWithString:s] scanHexInt:&value]) return nil;
+
+  if (s.length == 6) {
+    CGFloat r = ((value >> 16) & 0xff) / 255.0;
+    CGFloat g = ((value >> 8) & 0xff) / 255.0;
+    CGFloat b = (value & 0xff) / 255.0;
+    return [NSColor colorWithSRGBRed:r green:g blue:b alpha:1.0];
+  }
+  CGFloat r = ((value >> 24) & 0xff) / 255.0;
+  CGFloat g = ((value >> 16) & 0xff) / 255.0;
+  CGFloat b = ((value >> 8) & 0xff) / 255.0;
+  CGFloat a = (value & 0xff) / 255.0;
+  return [NSColor colorWithSRGBRed:r green:g blue:b alpha:a];
+}
+
+/// Decode a color-style JSON object into a solid `NSColor` and/or an
+/// `NSGradient`. `default` (or anything unrecognized) leaves both nil so the
+/// view keeps using the system text color.
+static void parse_color_style(NSString *json, NSColor **outColor,
+                              NSGradient **outGradient, CGFloat *outAngle) {
+  *outColor = nil;
+  *outGradient = nil;
+  *outAngle = 90.0;
+  if (json == nil || json.length == 0) return;
+
+  NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
+  if (data == nil) return;
+  NSError *err = nil;
+  id obj = [NSJSONSerialization JSONObjectWithData:data options:0 error:&err];
+  if (err != nil || ![obj isKindOfClass:[NSDictionary class]]) return;
+
+  NSDictionary *dict = (NSDictionary *)obj;
+  NSString *type = dict[@"type"];
+  if ([type isEqualToString:@"solid"]) {
+    *outColor = color_from_hex(dict[@"value"]);
+  } else if ([type isEqualToString:@"gradient"]) {
+    NSColor *from = color_from_hex(dict[@"from"]);
+    NSColor *to = color_from_hex(dict[@"to"]);
+    if (from != nil && to != nil) {
+      *outGradient = [[NSGradient alloc] initWithStartingColor:from
+                                                    endingColor:to];
+      NSNumber *angle = dict[@"angle"];
+      if (angle != nil) *outAngle = [angle doubleValue];
+    }
+  }
+  // "default" or unknown => leave both nil (system textColor).
+}
+
+/// Build an `NSBezierPath` outlining the glyphs of `string` using `font`.
+/// The path's origin is the text baseline (y = 0); glyphs extend upward.
+static NSBezierPath *textPathForString(NSString *string, NSFont *font) {
+  if (string.length == 0) return nil;
+  CTFontRef ctFont = (__bridge CTFontRef)font;
+
+  CFAttributedStringRef attr = (__bridge CFAttributedStringRef)
+      [[NSAttributedString alloc] initWithString:string
+                                      attributes:@{NSFontAttributeName : font}];
+  CTLineRef line = CTLineCreateWithAttributedString(attr);
+  CGMutablePathRef letters = CGPathCreateMutable();
+
+  CFArrayRef runs = CTLineGetGlyphRuns(line);
+  for (CFIndex i = 0; i < CFArrayGetCount(runs); i++) {
+    CTRunRef run = (CTRunRef)CFArrayGetValueAtIndex(runs, i);
+    CFIndex count = CTRunGetGlyphCount(run);
+    if (count == 0) continue;
+    std::vector<CGGlyph> glyphs(count);
+    std::vector<CGPoint> positions(count);
+    CTRunGetGlyphs(run, CFRangeMake(0, count), glyphs.data());
+    CTRunGetPositions(run, CFRangeMake(0, count), positions.data());
+    for (CFIndex j = 0; j < count; j++) {
+      CGPathRef glyphPath = CTFontCreatePathForGlyph(ctFont, glyphs[j], NULL);
+      if (glyphPath) {
+        CGAffineTransform t =
+            CGAffineTransformMakeTranslation(positions[j].x, positions[j].y);
+        CGPathAddPath(letters, &t, glyphPath);
+        CGPathRelease(glyphPath);
+      }
+    }
+  }
+  CFRelease(line);
+
+  NSBezierPath *path = [NSBezierPath bezierPathWithCGPath:letters];
+  CGPathRelease(letters);
+  return path;
+}
 
 // ---------------------------------------------------------------------------
 // Per-instance state and click/hover handler
@@ -359,6 +527,36 @@ void multiline_menubar_set_style(const char *id, double top_size,
     inst.view.bottomFontSize = inst.bottomFontSize;
     [inst.view setNeedsDisplay:YES];
     [inst updateWidth];
+  });
+}
+
+void multiline_menubar_set_color(const char *id, const char *top_json,
+                                 const char *bottom_json) {
+  NSString *key = key_from_id(id);
+  NSString *topJson = top_json ? [NSString stringWithUTF8String:top_json] : @"";
+  NSString *bottomJson =
+      bottom_json ? [NSString stringWithUTF8String:bottom_json] : @"";
+  dispatch_async(dispatch_get_main_queue(), ^{
+    MenubarInstance *inst = ensure_instance(key);
+
+    NSColor *topColor = nil;
+    NSGradient *topGrad = nil;
+    CGFloat topAngle = 90;
+    NSColor *botColor = nil;
+    NSGradient *botGrad = nil;
+    CGFloat botAngle = 90;
+
+    parse_color_style(topJson, &topColor, &topGrad, &topAngle);
+    parse_color_style(bottomJson, &botColor, &botGrad, &botAngle);
+
+    inst.view.topColor = topColor;
+    inst.view.topGradient = topGrad;
+    inst.view.topGradientAngle = topAngle;
+    inst.view.bottomColor = botColor;
+    inst.view.bottomGradient = botGrad;
+    inst.view.bottomGradientAngle = botAngle;
+
+    [inst.view setNeedsDisplay:YES];
   });
 }
 

@@ -77,6 +77,15 @@ pub(crate) async fn set_menu<R: Runtime>(
 }
 
 #[command]
+pub(crate) async fn set_colors<R: Runtime>(
+    app: AppHandle<R>,
+    payload: SetColorsRequest,
+) -> crate::Result<()> {
+    app.multiline_menubar()
+        .set_colors(payload.id, payload.top, payload.bottom)
+}
+
+#[command]
 pub(crate) async fn remove_menu<R: Runtime>(
     app: AppHandle<R>,
     payload: IdRequest,
