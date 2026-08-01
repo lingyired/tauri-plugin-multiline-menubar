@@ -86,7 +86,6 @@ export interface SetMenuOptions {
 export type ColorStyle =
   | { type: 'default' }
   | { type: 'solid'; value: string }
-  | { type: 'gradient'; from: string; to: string; angle?: number }
 
 export interface SetColorsOptions {
   id: string
@@ -250,8 +249,7 @@ export async function getRect(options: IdOptions): Promise<Rect> {
 /**
  * Set the text paint for the top and bottom lines of an instance. Each line
  * accepts a {@link ColorStyle}: `default` (system color, follows dark mode),
- * `solid` (`#rrggbb`), or `gradient` (`from`/`to` hex + optional `angle` in
- * degrees, where 0 = left→right and 90 = bottom→top).
+ * or `solid` (`#rrggbb`).
  */
 export async function setColors(options: SetColorsOptions): Promise<void> {
   return await invoke('plugin:multiline-menubar|set_colors', {

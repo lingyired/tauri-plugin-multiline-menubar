@@ -103,6 +103,10 @@ static POPUP_HANDLER_ATTACHED: Mutex<bool> = Mutex::new(false);
 /// placeholder content).
 static INSTANCE_TEXT: Mutex<Option<HashMap<String, (String, String)>>> = Mutex::new(None);
 
+/// Last top/bottom font size set per instance, so the popup can pre-fill its
+/// font-size sliders with the values of whichever instance opened it.
+static INSTANCE_STYLE: Mutex<Option<HashMap<String, (f64, f64)>>> = Mutex::new(None);
+
 /// Event name used to tell the popup window which instance opened it and what
 /// that instance's current text is. Delivered with `emit_to` so only the popup
 /// window receives it.
@@ -418,18 +422,30 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
         );
 
         // Tell the popup window which instance opened it and what that
-        // instance's current text is, so it can show instance-specific content
-        // instead of static placeholder values.
+        // instance's current text and font sizes are, so it can show
+        // instance-specific content instead of static placeholder values.
         let text = INSTANCE_TEXT
             .lock()
             .unwrap()
             .as_ref()
             .and_then(|m| m.get(id).cloned())
             .unwrap_or_default();
+        let style = INSTANCE_STYLE
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|m| m.get(id).copied())
+            .unwrap_or((7.0, 12.0));
         let _ = app.emit_to(
             &label,
             POPUP_OPEN_TARGET_EVENT,
-            serde_json::json!({ "id": id, "top": text.0, "bottom": text.1 }),
+            serde_json::json!({
+                "id": id,
+                "top": text.0,
+                "bottom": text.1,
+                "topSize": style.0,
+                "bottomSize": style.1
+            }),
         );
     }
     Ok(())
@@ -600,6 +616,9 @@ impl<R: Runtime> MultilineMenubar<R> {
             if let Some(map) = INSTANCE_TEXT.lock().unwrap().as_mut() {
                 map.remove(&id);
             }
+            if let Some(map) = INSTANCE_STYLE.lock().unwrap().as_mut() {
+                map.remove(&id);
+            }
 
             // Drop the menu on the main thread, where it was created.
             if let Some(app) = APP_HANDLE.get() {
@@ -674,6 +693,14 @@ impl<R: Runtime> MultilineMenubar<R> {
     pub fn set_font_sizes(&self, id: String, top: f64, bottom: f64) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
+            // Remember the sizes so the popup can show this instance's values
+            // (mirrors INSTANCE_TEXT for the text content).
+            INSTANCE_STYLE
+                .lock()
+                .unwrap()
+                .get_or_insert_with(HashMap::new)
+                .insert(id.clone(), (top, bottom));
+
             let c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
             unsafe { multiline_menubar_set_style(c.as_ptr(), top, bottom) };
             return Ok(());
@@ -789,7 +816,7 @@ impl<R: Runtime> MultilineMenubar<R> {
 
     /// Set the text paint for the top and bottom lines. `top`/`bottom` are
     /// `ColorStyle` values; they are serialized to the small JSON shape the
-    /// native layer parses (`{"type":"default"|"solid"|"gradient", ...}`).
+    /// native layer parses (`{"type":"default"|"solid", ...}`).
     pub fn set_colors(
         &self,
         id: String,
@@ -802,11 +829,6 @@ impl<R: Runtime> MultilineMenubar<R> {
                 serde_json::to_string(&top).map_err(|e| crate::Error::Menu(e.to_string()))?;
             let bottom_json = serde_json::to_string(&bottom)
                 .map_err(|e| crate::Error::Menu(e.to_string()))?;
-
-            eprintln!(
-                "[menubar] set_colors: id={} top_json={} bottom_json={}",
-                id, top_json, bottom_json
-            );
 
             let id_c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
             let top_c =
