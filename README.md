@@ -1,5 +1,10 @@
 # Tauri Plugin multiline-menubar
 
+[![Tauri](https://img.shields.io/badge/Tauri-2.x-24C8DB?logo=tauri&logoColor=white)](https://v2.tauri.app/)
+[![Platform](https://img.shields.io/badge/platform-macOS-000000?logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![Release](https://img.shields.io/github/v/release/lingyired/tauri-plugin-multiline-menubar)](https://github.com/lingyired/tauri-plugin-multiline-menubar/releases)
+[![GitHub](https://img.shields.io/badge/GitHub-lingyired%2Ftauri--plugin--multiline--menubar-181717?logo=github)](https://github.com/lingyired/tauri-plugin-multiline-menubar)
+
 A Tauri v2 plugin that renders a two-line label in the macOS menu bar, similar to the Stats app's Mini widget.
 
 ## Supported platforms
