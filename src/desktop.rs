@@ -530,6 +530,16 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
                 return;
             };
 
+            // Standard menubar "Quit" entries: terminate the whole app.
+            // Handled here in Rust so it works without depending on the
+            // frontend, the `tauri-plugin-process` crate, or any extra
+            // capability — `window.__TAURI__.app.exit` does not exist in the
+            // base `app` module, so a JS-side quit would silently fail.
+            if item_id == "quit" || item_id == "quit2" {
+                app.exit(0);
+                return;
+            }
+
             let mut payload = serde_json::json!({
                 "id": instance_id,
                 "itemId": item_id,
