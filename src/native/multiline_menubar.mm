@@ -270,11 +270,37 @@ static void run_on_main_sync(dispatch_block_t block) {
 // C API
 // ---------------------------------------------------------------------------
 
+/// Show or hide a status item without releasing its slot in the bar.
+///
+/// `button.hidden` only hides the view but leaves a reserved (blank) gap in
+/// the menu bar, because the item is still part of the system's status items.
+/// `NSStatusItem.visible` (macOS 13+) removes the item from display AND frees
+/// the space, while keeping it in the array so its position is preserved when
+/// shown again. Fall back to `hidden` on older systems (where the gap remains
+/// — the only alternative pre-13 is removeStatusItem, which loses position).
+static void set_instance_visible(MenubarInstance *inst, BOOL visible) {
+  if (!inst || !inst.statusItem) return;
+  if (@available(macOS 13.0, *)) {
+    inst.statusItem.visible = visible;
+  } else {
+    inst.statusItem.button.hidden = !visible;
+  }
+}
+
+/// Current visibility, matching `set_instance_visible`.
+static BOOL instance_is_visible(MenubarInstance *inst) {
+  if (!inst || !inst.statusItem) return NO;
+  if (@available(macOS 13.0, *)) {
+    return inst.statusItem.visible;
+  }
+  return !inst.statusItem.button.hidden;
+}
+
 void multiline_menubar_create(const char *id) {
   NSString *key = key_from_id(id);
   dispatch_async(dispatch_get_main_queue(), ^{
     MenubarInstance *inst = ensure_instance(key);
-    inst.statusItem.button.hidden = NO;
+    set_instance_visible(inst, YES);
   });
 }
 
@@ -293,7 +319,7 @@ void multiline_menubar_show(const char *id) {
   NSString *key = key_from_id(id);
   dispatch_async(dispatch_get_main_queue(), ^{
     MenubarInstance *inst = ensure_instance(key);
-    inst.statusItem.button.hidden = NO;
+    set_instance_visible(inst, YES);
   });
 }
 
@@ -302,7 +328,7 @@ void multiline_menubar_hide(const char *id) {
   dispatch_async(dispatch_get_main_queue(), ^{
     MenubarInstance *inst = g_instances[key];
     if (inst) {
-      inst.statusItem.button.hidden = YES;
+      set_instance_visible(inst, NO);
     }
   });
 }
@@ -383,7 +409,7 @@ int multiline_menubar_is_visible(const char *id) {
   NSString *key = key_from_id(id);
   run_on_main_sync(^{
     MenubarInstance *inst = g_instances[key];
-    result = (inst && !inst.statusItem.button.hidden) ? 1 : 0;
+    result = instance_is_visible(inst) ? 1 : 0;
   });
   return result;
 }
