@@ -1,0 +1,65 @@
+name: CI
+
+# Verify the plugin and the bundled example app always compile.
+# The plugin is macOS-only (Objective-C++), so it must build on a macOS runner.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 10
+  RUST_BACKTRACE: 1
+
+jobs:
+  check:
+    name: Check (plugin + example)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Cargo check — plugin
+        run: cargo check
+
+      - name: Cargo check — example app (Rust side)
+        working-directory: examples/demo/src-tauri
+        run: cargo check
+
+  build-example:
+    name: Build example app (full bundle)
+    runs-on: macos-latest
+    needs: check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install frontend deps
+        working-directory: examples/demo
+        run: npm install
+
+      - name: Tauri build — example app
+        # Builds the front-end (plain HTML via global Tauri) and bundles the
+        # .app. This is the real "does the demo compile & run" gate. No signing
+        # is performed, so the artifact is unsigned (fine for CI verification).
+        working-directory: examples/demo
+        run: npm run tauri build
