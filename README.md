@@ -162,7 +162,7 @@ macOS menubar plugin family (e.g. `tauri-plugin-menubar-dnd`):
   - `multiline-menubar://click` — `{ button: "left" | "right", x, y, width, height }`.
   - `multiline-menubar://popup-open` / `multiline-menubar://popup-close` — `{ window }`.
 
-> **v3.9 renaming:** the API was aligned with Tauri's `TrayIcon`. Historical
+> **v1.0.0:** the API was aligned with Tauri's `TrayIcon`. Historical
 > names `getRect → rect`, `destroy → remove`, and `show`/`hide` were folded
 > into `setVisible(bool)`. `removeMenu` is retained and `setMenu(null)` detaches
 > the menu. See [`API.md`](./API.md) for the full reference.

@@ -8,7 +8,7 @@ value below — inspired by the Stats app's Mini widget.
 - **Windows / Linux / mobile** — the API compiles, but every call returns
   `UnsupportedPlatform`.
 
-> **Naming convention (v3.9):** the API is aligned with Tauri's `TrayIcon`
+> **Naming convention (v1.0.0):** the API is aligned with Tauri's `TrayIcon`
 > conventions. Historical names were renamed: `getRect → rect`,
 > `destroy → remove`, and `show`/`hide` were folded into a single
 > `setVisible(bool)`. `removeMenu` is kept, and `setMenu(null)` (or omitting
