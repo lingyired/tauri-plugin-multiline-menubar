@@ -12,6 +12,18 @@ A Tauri v2 plugin that renders a two-line label in the macOS menu bar, similar t
 - **macOS** — full native support via `NSStatusItem` + a custom `NSView`.
 - **Windows / Linux / mobile** — API compiles but returns `UnsupportedPlatform`.
 
+## Example
+
+A runnable demo lives in [`examples/demo`](./examples/demo). It is a minimal Tauri v2
+app that drives the plugin from plain HTML/JS (no framework). The plugin is pulled in
+by relative path (`../../..`), so it always builds against the source in this repo:
+
+```bash
+cd examples/demo
+npm install
+npm run tauri dev   # macOS only
+```
+
 ## Rust usage
 
 Add the plugin to your Tauri app:

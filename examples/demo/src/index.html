@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tauri App</title>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+
+  <body>
+    <main class="container">
+      <h1>Multiline Menubar Plugin</h1>
+
+      <div class="row">
+        <a href="https://tauri.app" target="_blank">
+          <img src="/assets/tauri.svg" class="logo tauri" alt="Tauri logo" />
+        </a>
+        <a
+          href="https://developer.mozilla.org/en-US/docs/Web/JavaScript"
+          target="_blank"
+        >
+          <img
+            src="/assets/javascript.svg"
+            class="logo vanilla"
+            alt="JavaScript logo"
+          />
+        </a>
+      </div>
+
+      <section class="card">
+        <h2>Menu Bar</h2>
+        <p>
+          This demo uses a native NSStatusItem with a custom NSView to render
+          two lines in the macOS menu bar, matching the Stats widget reference.
+        </p>
+
+        <form id="menubar-form">
+          <div class="field">
+            <label for="top-input">Top label</label>
+            <input id="top-input" value="Sensor" />
+          </div>
+          <div class="field">
+            <label for="bottom-input">Bottom value</label>
+            <input id="bottom-input" value="16W" />
+          </div>
+          <div class="field">
+            <label>Layout</label>
+            <div class="row">
+              <label><input type="radio" name="layout" id="layout-bottom" value="0" checked /> Small top · Large bottom</label>
+              <label><input type="radio" name="layout" id="layout-top" value="1" /> Large top · Small bottom</label>
+              <label><input type="radio" name="layout" id="layout-equal" value="2" /> Equal</label>
+            </div>
+          </div>
+          <div id="size-asym">
+            <div class="field">
+              <label for="large-size-input">
+                Large line (<span id="large-size-value">12</span> pt)
+              </label>
+              <input
+                id="large-size-input"
+                type="range"
+                min="8"
+                max="16"
+                step="1"
+                value="12"
+              />
+            </div>
+            <div class="field">
+              <label for="small-size-input">
+                Small line (<span id="small-size-value">7</span> pt)
+              </label>
+              <input
+                id="small-size-input"
+                type="range"
+                min="5"
+                max="11"
+                step="1"
+                value="7"
+              />
+            </div>
+          </div>
+          <div id="size-equal" style="display: none">
+            <div class="field">
+              <label for="size-input">
+                Size (both lines, <span id="size-value">9</span> pt)
+              </label>
+              <input
+                id="size-input"
+                type="range"
+                min="5"
+                max="11"
+                step="1"
+                value="9"
+              />
+            </div>
+          </div>
+          <div class="row">
+            <button type="submit">Update menubar</button>
+            <button type="button" id="show-btn">Show</button>
+            <button type="button" id="hide-btn">Hide</button>
+            <button type="button" id="toggle-popup-btn">Toggle popup</button>
+            <button type="button" id="toggle-second-btn">Add 2nd instance</button>
+          </div>
+        </form>
+        <p id="menubar-status"></p>
+        <p id="click-log" class="muted">Click the menu bar item to open the popup.</p>
+        <p id="hover-log" class="muted">Hover the menu bar item to see enter/leave events.</p>
+        <p id="menu-log" class="muted">Right-click for the menu (Version / Quit).</p>
+      </section>
+
+      <section class="card">
+        <h2>Colors</h2>
+        <p>
+          Pick a color for each line. "Reset to system color" reverts to macOS's
+          default menu-bar text color (follows light/dark mode).
+        </p>
+        <form id="colors-form">
+          <div class="field">
+            <label for="top-color">Top line color</label>
+            <input type="color" id="top-color" value="#7fd1ff" />
+          </div>
+          <div class="field">
+            <label for="bottom-color">Bottom line color</label>
+            <input type="color" id="bottom-color" value="#ffd166" />
+          </div>
+          <div class="row">
+            <button type="submit">Apply colors</button>
+            <button type="button" id="reset-colors">Reset to system color</button>
+            <span id="color-log" class="muted"></span>
+          </div>
+        </form>
+      </section>
+
+      <form class="row" id="greet-form">
+        <input id="greet-input" placeholder="Enter a name..." />
+        <button type="submit">Greet</button>
+      </form>
+      <p id="greet-msg"></p>
+    </main>
+  </body>
+</html>
