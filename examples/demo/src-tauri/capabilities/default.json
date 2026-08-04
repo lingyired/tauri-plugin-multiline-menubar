@@ -6,6 +6,13 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "multiline-menubar:default"
+    "multiline-menubar:default",
+    "multiline-menubar:allow-remove",
+    "multiline-menubar:allow-set-menu",
+    "multiline-menubar:allow-remove-menu",
+    "multiline-menubar:allow-set-popup-window",
+    "multiline-menubar:allow-open-popup",
+    "multiline-menubar:allow-close-popup",
+    "multiline-menubar:allow-toggle-popup"
   ]
 }

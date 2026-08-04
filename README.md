@@ -46,6 +46,38 @@ Add the default capability:
 }
 ```
 
+### Permissions
+
+The `multiline-menubar:default` permission set covers core rendering and
+read-only queries: `create`, `set_text`, `set_font_sizes`, `set_layout`,
+`set_tooltip`, `set_visible`, `set_colors`, `set_bold`, `rect`,
+`is_visible`, `set_auto_popup`.
+
+Higher-impact commands are **not** included by default and must be granted
+explicitly when needed:
+
+| Command | Permission | Why it's not default |
+|---|---|---|
+| `remove` | `multiline-menubar:allow-remove` | Destroys a status item |
+| `set_menu` / `remove_menu` | `multiline-menubar:allow-set-menu` / `allow-remove-menu` | Injects arbitrary menu items |
+| `set_popup_window` | `multiline-menubar:allow-set-popup-window` | Repoints which window opens as popup |
+| `open_popup` / `close_popup` / `toggle_popup` | `allow-open-popup` / `allow-close-popup` / `allow-toggle-popup` | Shows/hides a window |
+
+```json
+{
+  "permissions": [
+    "multiline-menubar:default",
+    "multiline-menubar:allow-remove",
+    "multiline-menubar:allow-set-menu",
+    "multiline-menubar:allow-open-popup"
+  ]
+}
+```
+
+> **Breaking change (v1.2.0):** earlier versions shipped all commands in the
+> default set. If your app relied on the removed ones, add the matching
+> `allow-*` permissions above to your capability file.
+
 ## Frontend usage
 
 ```ts
