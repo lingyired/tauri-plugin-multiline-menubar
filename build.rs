@@ -21,6 +21,9 @@ const COMMANDS: &[&str] = &[
 
 fn main() {
     tauri_plugin::Builder::new(COMMANDS)
+        // Mobile stubs exist in `src/mobile.rs` but no `android/` / `ios/`
+        // platform directories ship with this repo, so mobile targets are not
+        // buildable yet. The paths are kept so the generator stays happy.
         .android_path("android")
         .ios_path("ios")
         .build();

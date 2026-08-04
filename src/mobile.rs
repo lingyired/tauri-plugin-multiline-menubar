@@ -4,6 +4,8 @@ use tauri::{
     AppHandle, Runtime,
 };
 
+use crate::models::*;
+
 #[cfg(target_os = "ios")]
 tauri::ios_plugin_binding!(init_plugin_multiline_menubar);
 
@@ -23,26 +25,62 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 }
 
 /// Access to the multiline-menubar APIs.
+///
+/// The plugin is macOS-only; every method below is a stub mirroring the
+/// desktop API surface (same signatures) and returns `UnsupportedPlatform`.
 pub struct MultilineMenubar<R: Runtime>(PluginHandle<R>);
 
 impl<R: Runtime> MultilineMenubar<R> {
-    pub fn set_text(&self, _top: String, _bottom: String) -> crate::Result<()> {
+    pub fn create(&self, _id: String) -> crate::Result<()> {
         Err(crate::Error::UnsupportedPlatform)
     }
 
-    pub fn set_font_sizes(&self, _top: f64, _bottom: f64) -> crate::Result<()> {
+    pub fn remove(&self, _id: String) -> crate::Result<()> {
         Err(crate::Error::UnsupportedPlatform)
     }
 
-    pub fn set_tooltip(&self, _tooltip: String) -> crate::Result<()> {
+    pub fn set_text(&self, _id: String, _top: String, _bottom: String) -> crate::Result<()> {
         Err(crate::Error::UnsupportedPlatform)
     }
 
-    pub fn set_version(&self, _version: String) -> crate::Result<()> {
+    pub fn set_font_sizes(&self, _id: String, _top: f64, _bottom: f64) -> crate::Result<()> {
         Err(crate::Error::UnsupportedPlatform)
     }
 
-    pub fn set_visible(&self, _visible: bool) -> crate::Result<()> {
+    pub fn set_layout(&self, _id: String, _layout: i32) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn set_tooltip(&self, _id: String, _tooltip: String) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn set_visible(&self, _id: String, _visible: bool) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn set_menu(&self, _id: String, _items: Vec<MenuItemDescriptor>) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn remove_menu(&self, _id: String) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn set_colors(
+        &self,
+        _id: String,
+        _top: ColorStyle,
+        _bottom: ColorStyle,
+    ) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn set_bold(&self, _id: String, _top_bold: bool, _bottom_bold: bool) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
+    pub fn rect(&self, _id: String) -> crate::Result<Rect> {
         Err(crate::Error::UnsupportedPlatform)
     }
 
@@ -54,23 +92,19 @@ impl<R: Runtime> MultilineMenubar<R> {
         Err(crate::Error::UnsupportedPlatform)
     }
 
-    pub fn open_popup(&self) -> crate::Result<()> {
+    pub fn open_popup(&self, _id: String) -> crate::Result<()> {
         Err(crate::Error::UnsupportedPlatform)
     }
 
-    pub fn close_popup(&self) -> crate::Result<()> {
+    pub fn close_popup(&self, _id: String) -> crate::Result<()> {
         Err(crate::Error::UnsupportedPlatform)
     }
 
-    pub fn toggle_popup(&self) -> crate::Result<()> {
+    pub fn toggle_popup(&self, _id: String) -> crate::Result<()> {
         Err(crate::Error::UnsupportedPlatform)
     }
 
-    pub fn is_visible(&self) -> crate::Result<bool> {
-        Err(crate::Error::UnsupportedPlatform)
-    }
-
-    pub fn set_bold(&self, _top_bold: bool, _bottom_bold: bool) -> crate::Result<()> {
+    pub fn is_visible(&self, _id: String) -> crate::Result<bool> {
         Err(crate::Error::UnsupportedPlatform)
     }
 }

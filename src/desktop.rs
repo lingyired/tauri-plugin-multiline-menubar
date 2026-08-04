@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use std::time::{Duration, Instant};
 
 use serde::de::DeserializeOwned;
@@ -92,7 +92,7 @@ thread_local! {
 static MENU_ITEM_OWNERS: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
 
 /// Label of the Tauri window used as the popup (default "popup").
-static POPUP_WINDOW: Mutex<Option<String>> = Mutex::new(None);
+static POPUP_WINDOW: RwLock<Option<Arc<str>>> = RwLock::new(None);
 
 /// Whether a left click automatically toggles the popup window.
 static AUTO_POPUP: Mutex<bool> = Mutex::new(true);
@@ -107,19 +107,50 @@ static POPUP_HANDLER_ATTACHED: Mutex<bool> = Mutex::new(false);
 /// Last top/bottom text set per instance, so the popup can be pre-filled with
 /// the values of whichever instance opened it (rather than showing static
 /// placeholder content).
-static INSTANCE_TEXT: Mutex<Option<HashMap<String, (String, String)>>> = Mutex::new(None);
+///
+/// One map holds all per-instance remembered state (text, font sizes, bold
+/// toggles, layout) instead of four separate globals, so reading it for the
+/// popup takes a single lock. Text is stored as `Arc<str>` so the popup can
+/// borrow it without copying, and setters compare against the previous value
+/// to skip redundant native round-trips.
+///
+/// NOTE: this is the Rust-side *memory* of what was sent to the native layer;
+/// the `MenubarInstance` in Objective-C holds the authoritative rendering
+/// state (text, sizes, colors, bold, layout). The two are kept in sync
+/// because every public setter goes through this map before calling into
+/// native code — do not bypass it.
+///
+/// Access via [`instances()`]; `HashMap::new` is not const, so the map is
+/// initialized lazily.
+fn instances() -> &'static Mutex<HashMap<String, InstanceState>> {
+    static INSTANCES: OnceLock<Mutex<HashMap<String, InstanceState>>> = OnceLock::new();
+    INSTANCES.get_or_init(|| Mutex::new(HashMap::new()))
+}
 
-/// Last top/bottom font size set per instance, so the popup can pre-fill its
-/// font-size sliders with the values of whichever instance opened it.
-static INSTANCE_STYLE: Mutex<Option<HashMap<String, (f64, f64)>>> = Mutex::new(None);
+/// Per-instance state remembered so the popup can pre-fill with the values of
+/// whichever instance opened it.
+#[derive(Clone)]
+struct InstanceState {
+    /// Last top/bottom text.
+    text: (Arc<str>, Arc<str>),
+    /// Last top/bottom font size.
+    style: (f64, f64),
+    /// Last top/bottom bold toggle.
+    weight: (bool, bool),
+    /// Last layout mode (0 = stacked, 1 = balanced).
+    layout: i32,
+}
 
-/// Last top/bottom bold toggle set per instance, so the popup can pre-fill its
-/// bold toggles with the values of whichever instance opened it.
-static INSTANCE_WEIGHT: Mutex<Option<HashMap<String, (bool, bool)>>> = Mutex::new(None);
-
-/// Last layout mode per instance (0 = stacked, 1 = balanced), so the popup can
-/// pre-select which layout the opened instance uses.
-static INSTANCE_LAYOUT: Mutex<Option<HashMap<String, i32>>> = Mutex::new(None);
+impl Default for InstanceState {
+    fn default() -> Self {
+        Self {
+            text: (Arc::from(""), Arc::from("")),
+            style: (7.0, 12.0),
+            weight: (false, false),
+            layout: 0,
+        }
+    }
+}
 
 /// Event name used to tell the popup window which instance opened it and what
 /// that instance's current text is. Delivered with `emit_to` so only the popup
@@ -160,7 +191,7 @@ extern "C" fn on_native_click(
 
         // The native layer pops the context menu on right click; only a left
         // click drives the popup window.
-        let auto = *AUTO_POPUP.lock().unwrap();
+        let auto = *AUTO_POPUP.lock().unwrap_or_else(|e| e.into_inner());
         if auto && button_str == "left" {
             let _ = toggle_popup_window(app, id_str);
         }
@@ -218,6 +249,71 @@ fn get_instance_rect(id: &str) -> Option<(f64, f64, f64, f64)> {
 // Menu ownership bookkeeping
 // ---------------------------------------------------------------------------
 
+/// Menu item ids whose selection terminates the whole app. Centralized so a
+/// host can adjust the set in one place; note that these ids are then
+/// unavailable for regular menu items.
+const QUIT_ITEM_IDS: &[&str] = &["quit", "quit2"];
+
+/// Max nesting depth of menu submenus (guards the recursive menu builders
+/// against stack exhaustion).
+const MAX_MENU_DEPTH: usize = 8;
+/// Max total number of items in one menu, including nested submenu items.
+const MAX_MENU_ITEMS: usize = 100;
+/// Max length (bytes) of a menu item text.
+const MAX_MENU_TEXT_BYTES: usize = 256;
+
+/// Max length (bytes) of a single line of menubar text.
+const MAX_TEXT_BYTES: usize = 1024;
+
+/// Validate the descriptor tree before it is consumed by the (recursive)
+/// menu builders: enforce nesting depth, total item count and text lengths.
+/// The accelerators are validated separately by `validate_accelerators`.
+#[cfg(target_os = "macos")]
+fn validate_menu_tree(items: &[MenuItemDescriptor]) -> crate::Result<()> {
+    fn walk(
+        items: &[MenuItemDescriptor],
+        depth: usize,
+        count: &mut usize,
+    ) -> crate::Result<()> {
+        if depth > MAX_MENU_DEPTH {
+            return Err(crate::Error::InvalidArgument(format!(
+                "menu nesting exceeds {MAX_MENU_DEPTH} levels"
+            )));
+        }
+        for item in items {
+            *count += 1;
+            if *count > MAX_MENU_ITEMS {
+                return Err(crate::Error::InvalidArgument(format!(
+                    "menu exceeds {MAX_MENU_ITEMS} items"
+                )));
+            }
+            match item {
+                MenuItemDescriptor::Item { text, .. }
+                | MenuItemDescriptor::Check { text, .. } => {
+                    if text.len() > MAX_MENU_TEXT_BYTES {
+                        return Err(crate::Error::InvalidArgument(format!(
+                            "menu item text exceeds {MAX_MENU_TEXT_BYTES} bytes"
+                        )));
+                    }
+                }
+                MenuItemDescriptor::Separator => {}
+                MenuItemDescriptor::Submenu { text, items } => {
+                    if text.len() > MAX_MENU_TEXT_BYTES {
+                        return Err(crate::Error::InvalidArgument(format!(
+                            "submenu text exceeds {MAX_MENU_TEXT_BYTES} bytes"
+                        )));
+                    }
+                    walk(items, depth + 1, count)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    let mut count = 0;
+    walk(items, 0, &mut count)
+}
+
 /// Collect the ids of every selectable item in a descriptor tree.
 /// Separators are skipped (muda assigns them throwaway ids) and submenus
 /// contribute their children rather than themselves.
@@ -237,7 +333,9 @@ fn collect_item_ids(items: &[MenuItemDescriptor], out: &mut Vec<String>) {
 /// previously owned (so replacing a menu does not leak stale entries).
 #[cfg(target_os = "macos")]
 fn register_menu_owners(instance_id: &str, item_ids: Vec<String>) {
-    let mut guard = MENU_ITEM_OWNERS.lock().unwrap();
+    let mut guard = MENU_ITEM_OWNERS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let owners = guard.get_or_insert_with(HashMap::new);
     owners.retain(|_, owner| owner != instance_id);
     for id in item_ids {
@@ -248,7 +346,9 @@ fn register_menu_owners(instance_id: &str, item_ids: Vec<String>) {
 /// Forget every item id owned by an instance.
 #[cfg(target_os = "macos")]
 fn unregister_menu_owners(instance_id: &str) {
-    let mut guard = MENU_ITEM_OWNERS.lock().unwrap();
+    let mut guard = MENU_ITEM_OWNERS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     if let Some(owners) = guard.as_mut() {
         owners.retain(|_, owner| owner != instance_id);
     }
@@ -257,7 +357,7 @@ fn unregister_menu_owners(instance_id: &str) {
 /// Which instance owns this menu item id, if any.
 #[cfg(target_os = "macos")]
 fn menu_owner_of(item_id: &str) -> Option<String> {
-    let guard = MENU_ITEM_OWNERS.lock().unwrap();
+    let guard = MENU_ITEM_OWNERS.lock().unwrap_or_else(|e| e.into_inner());
     guard.as_ref()?.get(item_id).cloned()
 }
 
@@ -422,11 +522,13 @@ fn position_popup_under_status_item(
 #[cfg(target_os = "macos")]
 fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()> {
     let label = popup_label();
-    if let Some(win) = app.get_webview_window(&label) {
+    if let Some(win) = app.get_webview_window(label.as_ref()) {
         let rect = get_instance_rect(id).unwrap_or((0.0, 0.0, 0.0, 0.0));
         position_popup_under_status_item(app, &win, rect)?;
-        attach_auto_hide(app, &win, &label);
-        *POPUP_IGNORE_BLUR_UNTIL.lock().unwrap() =
+        attach_auto_hide(app, &win, label.as_ref());
+        *POPUP_IGNORE_BLUR_UNTIL
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) =
             Some(Instant::now() + Duration::from_millis(200));
         let _ = win.show();
         let _ = win.set_focus();
@@ -438,42 +540,24 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
         // Tell the popup window which instance opened it and what that
         // instance's current text and font sizes are, so it can show
         // instance-specific content instead of static placeholder values.
-        let text = INSTANCE_TEXT
+        let state = instances()
             .lock()
-            .unwrap()
-            .as_ref()
-            .and_then(|m| m.get(id).cloned())
+            .unwrap_or_else(|e| e.into_inner())
+            .get(id)
+            .cloned()
             .unwrap_or_default();
-        let style = INSTANCE_STYLE
-            .lock()
-            .unwrap()
-            .as_ref()
-            .and_then(|m| m.get(id).copied())
-            .unwrap_or((7.0, 12.0));
-        let layout = INSTANCE_LAYOUT
-            .lock()
-            .unwrap()
-            .as_ref()
-            .and_then(|m| m.get(id).copied())
-            .unwrap_or(0);
-        let weight = INSTANCE_WEIGHT
-            .lock()
-            .unwrap()
-            .as_ref()
-            .and_then(|m| m.get(id).copied())
-            .unwrap_or((false, false));
         let _ = app.emit_to(
             &label,
             POPUP_OPEN_TARGET_EVENT,
             serde_json::json!({
                 "id": id,
-                "top": text.0,
-                "bottom": text.1,
-                "topSize": style.0,
-                "bottomSize": style.1,
-                "layout": layout,
-                "topBold": weight.0,
-                "bottomBold": weight.1
+                "top": state.text.0,
+                "bottom": state.text.1,
+                "topSize": state.style.0,
+                "bottomSize": state.style.1,
+                "layout": state.layout,
+                "topBold": state.weight.0,
+                "bottomBold": state.weight.1
             }),
         );
     }
@@ -484,7 +568,7 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
 #[cfg(target_os = "macos")]
 fn close_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()> {
     let label = popup_label();
-    if let Some(win) = app.get_webview_window(&label) {
+    if let Some(win) = app.get_webview_window(label.as_ref()) {
         let _ = win.hide();
         let _ = app.emit(
             format!("multiline-menubar://{}//popup-close", id).as_str(),
@@ -498,7 +582,7 @@ fn close_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()
 #[cfg(target_os = "macos")]
 fn toggle_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()> {
     let label = popup_label();
-    if let Some(win) = app.get_webview_window(&label) {
+    if let Some(win) = app.get_webview_window(label.as_ref()) {
         if win.is_visible().unwrap_or(false) {
             return close_popup_window(app, id);
         }
@@ -508,19 +592,21 @@ fn toggle_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<(
 }
 
 #[cfg(target_os = "macos")]
-fn popup_label() -> String {
+fn popup_label() -> Arc<str> {
     POPUP_WINDOW
-        .lock()
-        .unwrap()
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
         .clone()
-        .unwrap_or_else(|| "popup".to_string())
+        .unwrap_or_else(|| Arc::from("popup"))
 }
 
 /// Close the popup window when it loses focus (menubar-app behaviour).
 /// Attached once to the popup window.
 #[cfg(target_os = "macos")]
 fn attach_auto_hide(app: &tauri::AppHandle<Wry>, win: &WebviewWindow, label: &str) {
-    let mut attached = POPUP_HANDLER_ATTACHED.lock().unwrap();
+    let mut attached = POPUP_HANDLER_ATTACHED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     if *attached {
         return;
     }
@@ -528,10 +614,16 @@ fn attach_auto_hide(app: &tauri::AppHandle<Wry>, win: &WebviewWindow, label: &st
 
     let app = app.clone();
     let label = label.to_string();
+    // NOTE: tauri's `on_window_event` returns `()` and offers no API to remove
+    // the listener, but the listener lives in a window-scoped handler map that
+    // tauri drops when the window is destroyed, so the `app` clone captured
+    // here is released then too — nothing leaks for the app's lifetime.
     win.on_window_event(move |event| {
         if let WindowEvent::Focused(false) = event {
             let now = Instant::now();
-            let ignore = POPUP_IGNORE_BLUR_UNTIL.lock().unwrap();
+            let ignore = POPUP_IGNORE_BLUR_UNTIL
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
             if let Some(until) = *ignore {
                 if now < until {
                     return;
@@ -560,7 +652,11 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 ) -> crate::Result<MultilineMenubar<R>> {
     #[cfg(target_os = "macos")]
     {
-        let app_wry: tauri::AppHandle<Wry> = unsafe { std::mem::transmute_copy(app) };
+        // `transmute_copy` copies the Arc bytes without bumping the refcount,
+        // so clone first to take a real strong reference, then transmute the
+        // (now guaranteed-alive) copy. Without the clone, dropping `app` after
+        // init could leave `APP_HANDLE` dangling.
+        let app_wry: tauri::AppHandle<Wry> = unsafe { std::mem::transmute_copy(&app.clone()) };
         let _ = APP_HANDLE.set(app_wry);
 
         unsafe {
@@ -585,7 +681,11 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
             // frontend, the `tauri-plugin-process` crate, or any extra
             // capability — `window.__TAURI__.app.exit` does not exist in the
             // base `app` module, so a JS-side quit would silently fail.
-            if item_id == "quit" || item_id == "quit2" {
+            //
+            // NOTE: hosts must not reuse these ids for regular menu items —
+            // selecting them always exits the app. The ids are centralized
+            // here so adjusting the set is a one-line change.
+            if QUIT_ITEM_IDS.contains(&item_id) {
                 app.exit(0);
                 return;
             }
@@ -619,7 +719,8 @@ impl<R: Runtime> MultilineMenubar<R> {
     pub fn create(&self, id: String) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
-            let c = CString::new(id.as_str()).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            let c = CString::new(id.as_str())
+                .map_err(|_| crate::Error::InvalidArgument("id contains a NUL byte".into()))?;
             unsafe { multiline_menubar_create(c.as_ptr()) };
             if let Some(app) = APP_HANDLE.get() {
                 let _ = app.emit(
@@ -639,21 +740,14 @@ impl<R: Runtime> MultilineMenubar<R> {
     pub fn remove(&self, id: String) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
-            let c = CString::new(id.as_str()).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            let c = CString::new(id.as_str())
+                .map_err(|_| crate::Error::InvalidArgument("id contains a NUL byte".into()))?;
             unsafe { multiline_menubar_destroy(c.as_ptr()) };
             unregister_menu_owners(&id);
-            if let Some(map) = INSTANCE_TEXT.lock().unwrap().as_mut() {
-                map.remove(&id);
-            }
-            if let Some(map) = INSTANCE_STYLE.lock().unwrap().as_mut() {
-                map.remove(&id);
-            }
-            if let Some(map) = INSTANCE_WEIGHT.lock().unwrap().as_mut() {
-                map.remove(&id);
-            }
-            if let Some(map) = INSTANCE_LAYOUT.lock().unwrap().as_mut() {
-                map.remove(&id);
-            }
+            instances()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .remove(&id);
 
             // Drop the menu on the main thread, where it was created.
             if let Some(app) = APP_HANDLE.get() {
@@ -675,19 +769,39 @@ impl<R: Runtime> MultilineMenubar<R> {
     pub fn set_text(&self, id: String, top: String, bottom: String) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
-            // Remember the text so the popup can show this instance's values.
-            INSTANCE_TEXT
-                .lock()
-                .unwrap()
-                .get_or_insert_with(HashMap::new)
-                .insert(id.clone(), (top.clone(), bottom.clone()));
+            if top.len() > MAX_TEXT_BYTES || bottom.len() > MAX_TEXT_BYTES {
+                return Err(crate::Error::InvalidArgument(format!(
+                    "text exceeds {MAX_TEXT_BYTES} bytes per line"
+                )));
+            }
 
-            let id_c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
-            let top_c = CString::new(top).map_err(|_| crate::Error::UnsupportedPlatform)?;
-            let bottom_c = CString::new(bottom).map_err(|_| crate::Error::UnsupportedPlatform)?;
-            unsafe {
-                multiline_menubar_set_text(id_c.as_ptr(), top_c.as_ptr(), bottom_c.as_ptr())
+            // Remember the text so the popup can show this instance's values,
+            // and skip the native round-trip entirely when nothing changed —
+            // this is the hot path for e.g. per-second market refreshes.
+            let changed = {
+                let mut instances = instances().lock().unwrap_or_else(|e| e.into_inner());
+                let state = instances.entry(id.clone()).or_default();
+                if state.text.0.as_ref() == top && state.text.1.as_ref() == bottom {
+                    false
+                } else {
+                    state.text = (Arc::from(top.as_str()), Arc::from(bottom.as_str()));
+                    true
+                }
             };
+            if changed {
+                let id_c = CString::new(id).map_err(|_| {
+                    crate::Error::InvalidArgument("id contains a NUL byte".into())
+                })?;
+                let top_c = CString::new(top).map_err(|_| {
+                    crate::Error::InvalidArgument("top contains a NUL byte".into())
+                })?;
+                let bottom_c = CString::new(bottom).map_err(|_| {
+                    crate::Error::InvalidArgument("bottom contains a NUL byte".into())
+                })?;
+                unsafe {
+                    multiline_menubar_set_text(id_c.as_ptr(), top_c.as_ptr(), bottom_c.as_ptr())
+                };
+            }
             return Ok(());
         }
         #[cfg(not(target_os = "macos"))]
@@ -701,14 +815,17 @@ impl<R: Runtime> MultilineMenubar<R> {
         #[cfg(target_os = "macos")]
         {
             // Remember the sizes so the popup can show this instance's values
-            // (mirrors INSTANCE_TEXT for the text content).
-            INSTANCE_STYLE
+            // (mirrors the text bookkeeping above).
+            instances()
                 .lock()
-                .unwrap()
-                .get_or_insert_with(HashMap::new)
-                .insert(id.clone(), (top, bottom));
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(id.clone())
+                .or_default()
+                .style = (top, bottom);
 
-            let c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            let c = CString::new(id).map_err(|_| {
+                crate::Error::InvalidArgument("id contains a NUL byte".into())
+            })?;
             unsafe { multiline_menubar_set_style(c.as_ptr(), top, bottom) };
             return Ok(());
         }
@@ -732,13 +849,16 @@ impl<R: Runtime> MultilineMenubar<R> {
     pub fn set_layout(&self, id: String, layout: i32) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
-            INSTANCE_LAYOUT
+            instances()
                 .lock()
-                .unwrap()
-                .get_or_insert_with(HashMap::new)
-                .insert(id.clone(), layout);
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(id.clone())
+                .or_default()
+                .layout = layout;
 
-            let c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            let c = CString::new(id).map_err(|_| {
+                crate::Error::InvalidArgument("id contains a NUL byte".into())
+            })?;
             unsafe { multiline_menubar_set_layout(c.as_ptr(), layout as std::os::raw::c_int) };
             return Ok(());
         }
@@ -752,8 +872,10 @@ impl<R: Runtime> MultilineMenubar<R> {
     pub fn set_tooltip(&self, id: String, tooltip: String) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
-            let id_c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
-            let c = CString::new(tooltip).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            let id_c = CString::new(id)
+                .map_err(|_| crate::Error::InvalidArgument("id contains a NUL byte".into()))?;
+            let c = CString::new(tooltip)
+                .map_err(|_| crate::Error::InvalidArgument("tooltip contains a NUL byte".into()))?;
             unsafe { multiline_menubar_set_tooltip(id_c.as_ptr(), c.as_ptr()) };
             return Ok(());
         }
@@ -771,8 +893,10 @@ impl<R: Runtime> MultilineMenubar<R> {
     pub fn set_menu(&self, id: String, items: Vec<MenuItemDescriptor>) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
-            // Fail fast on bad accelerators while we can still return an error.
+            // Fail fast on bad accelerators and oversized menus while we can
+            // still return an error.
             validate_accelerators(&items)?;
+            validate_menu_tree(&items)?;
 
             let app = APP_HANDLE
                 .get()
@@ -832,7 +956,8 @@ impl<R: Runtime> MultilineMenubar<R> {
     pub fn remove_menu(&self, id: String) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
-            let c = CString::new(id.as_str()).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            let c = CString::new(id.as_str())
+                .map_err(|_| crate::Error::InvalidArgument("id contains a NUL byte".into()))?;
             unsafe { multiline_menubar_set_menu(c.as_ptr(), std::ptr::null_mut()) };
             unregister_menu_owners(&id);
             if let Some(app) = APP_HANDLE.get() {
@@ -867,11 +992,13 @@ impl<R: Runtime> MultilineMenubar<R> {
             let bottom_json = serde_json::to_string(&bottom)
                 .map_err(|e| crate::Error::Menu(e.to_string()))?;
 
-            let id_c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
-            let top_c =
-                CString::new(top_json).map_err(|_| crate::Error::UnsupportedPlatform)?;
-            let bottom_c =
-                CString::new(bottom_json).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            let id_c = CString::new(id)
+                .map_err(|_| crate::Error::InvalidArgument("id contains a NUL byte".into()))?;
+            let top_c = CString::new(top_json)
+                .map_err(|_| crate::Error::InvalidArgument("top color contains a NUL byte".into()))?;
+            let bottom_c = CString::new(bottom_json).map_err(|_| {
+                crate::Error::InvalidArgument("bottom color contains a NUL byte".into())
+            })?;
             unsafe {
                 multiline_menubar_set_color(id_c.as_ptr(), top_c.as_ptr(), bottom_c.as_ptr());
             }
@@ -897,14 +1024,17 @@ impl<R: Runtime> MultilineMenubar<R> {
         #[cfg(target_os = "macos")]
         {
             // Remember the toggle so the popup can pre-fill this instance's
-            // value (mirrors INSTANCE_STYLE for font sizes).
-            INSTANCE_WEIGHT
+            // value (mirrors the style bookkeeping for font sizes).
+            instances()
                 .lock()
-                .unwrap()
-                .get_or_insert_with(HashMap::new)
-                .insert(id.clone(), (top_bold, bottom_bold));
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(id.clone())
+                .or_default()
+                .weight = (top_bold, bottom_bold);
 
-            let c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            let c = CString::new(id).map_err(|_| {
+                crate::Error::InvalidArgument("id contains a NUL byte".into())
+            })?;
             unsafe {
                 multiline_menubar_set_bold(
                     c.as_ptr(),
@@ -942,10 +1072,14 @@ impl<R: Runtime> MultilineMenubar<R> {
         }
     }
 
+    /// Show or hide an instance. Note the asymmetry: showing an instance that
+    /// was never created implicitly creates it (mirroring `create`), while
+    /// hiding one that does not exist is a no-op.
     pub fn set_visible(&self, id: String, visible: bool) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
-            let c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            let c = CString::new(id)
+                .map_err(|_| crate::Error::InvalidArgument("id contains a NUL byte".into()))?;
             if visible {
                 unsafe { multiline_menubar_show(c.as_ptr()) };
             } else {
@@ -963,7 +1097,8 @@ impl<R: Runtime> MultilineMenubar<R> {
     pub fn is_visible(&self, id: String) -> crate::Result<bool> {
         #[cfg(target_os = "macos")]
         {
-            let c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            let c = CString::new(id)
+                .map_err(|_| crate::Error::InvalidArgument("id contains a NUL byte".into()))?;
             return Ok(unsafe { multiline_menubar_is_visible(c.as_ptr()) } != 0);
         }
         #[cfg(not(target_os = "macos"))]
@@ -975,13 +1110,13 @@ impl<R: Runtime> MultilineMenubar<R> {
 
     /// Set which Tauri window is used as the popup. Call before the first open.
     pub fn set_popup_window(&self, label: String) -> crate::Result<()> {
-        *POPUP_WINDOW.lock().unwrap() = Some(label);
+        *POPUP_WINDOW.write().unwrap_or_else(|e| e.into_inner()) = Some(label.into());
         Ok(())
     }
 
     /// Enable/disable automatically toggling the popup on left click.
     pub fn set_auto_popup(&self, enabled: bool) -> crate::Result<()> {
-        *AUTO_POPUP.lock().unwrap() = enabled;
+        *AUTO_POPUP.lock().unwrap_or_else(|e| e.into_inner()) = enabled;
         Ok(())
     }
 

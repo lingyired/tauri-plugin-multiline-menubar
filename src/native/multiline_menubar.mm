@@ -61,6 +61,15 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
 // `NSFontWeightBold` regardless of the weight `layout` would assign it.
 @property (assign, nonatomic) BOOL topBold;
 @property (assign, nonatomic) BOOL bottomBold;
+// Cached fonts for the two lines. Creating an NSFont round-trips the font
+// server, so under per-second text refreshes rebuilding them every frame is
+// wasteful; they are rebuilt lazily only when size or weight actually change.
+@property (strong, nonatomic) NSFont *cachedTopFont;
+@property (strong, nonatomic) NSFont *cachedBottomFont;
+@property (assign, nonatomic) CGFloat cachedTopSize;
+@property (assign, nonatomic) CGFloat cachedBottomSize;
+@property (assign, nonatomic) NSFontWeight cachedTopWeight;
+@property (assign, nonatomic) NSFontWeight cachedBottomWeight;
 + (NSFontWeight)weightForTop:(BOOL)isTop layout:(MenubarLayoutMode)layout;
 @end
 
@@ -101,18 +110,38 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
   return [MultilineMenubarView weightForTop:isTop layout:self.layoutMode];
 }
 
+/// The font for a line, rebuilt lazily only when its size or weight changes.
+/// Both `drawRect:` and `updateWidth` go through this so they share one
+/// cached font per line instead of allocating two fresh NSFonts per frame.
+- (NSFont *)fontForTop:(BOOL)isTop {
+  CGFloat size = isTop ? self.topFontSize : self.bottomFontSize;
+  NSFontWeight weight = [self resolvedWeightForTop:isTop];
+  if (isTop) {
+    if (_cachedTopFont == nil || _cachedTopSize != size ||
+        _cachedTopWeight != weight) {
+      _cachedTopFont = [NSFont systemFontOfSize:size weight:weight];
+      _cachedTopSize = size;
+      _cachedTopWeight = weight;
+    }
+    return _cachedTopFont;
+  }
+  if (_cachedBottomFont == nil || _cachedBottomSize != size ||
+      _cachedBottomWeight != weight) {
+    _cachedBottomFont = [NSFont systemFontOfSize:size weight:weight];
+    _cachedBottomSize = size;
+    _cachedBottomWeight = weight;
+  }
+  return _cachedBottomFont;
+}
+
 - (void)drawRect:(NSRect)dirtyRect {
   [super drawRect:dirtyRect];
 
   CGFloat barHeight = self.bounds.size.height;  // ~22 pt menu-bar height
   CGFloat barWidth = self.bounds.size.width;
 
-  NSFont *topFont = [NSFont
-      systemFontOfSize:self.topFontSize
-                weight:[self resolvedWeightForTop:YES]];
-  NSFont *bottomFont = [NSFont
-      systemFontOfSize:self.bottomFontSize
-                weight:[self resolvedWeightForTop:NO]];
+  NSFont *topFont = [self fontForTop:YES];
+  NSFont *bottomFont = [self fontForTop:NO];
 
   NSRect topRect;
   NSRect bottomRect;
@@ -277,16 +306,13 @@ static MultilineMenubarHoverCallback g_hoverCallback = NULL;
   NSString *bottomText = self.view.bottomText;
 
   // Measure with the same fonts `drawRect:` will use, otherwise the item is
-  // sized for the wrong weight/size and the text gets clipped.
+  // sized for the wrong weight/size and the text gets clipped. The fonts come
+  // from the shared cache, so no per-frame font allocation happens here.
   NSDictionary *topAttributes = @{
-    NSFontAttributeName : [NSFont
-        systemFontOfSize:self.view.topFontSize
-                  weight:[self.view resolvedWeightForTop:YES]],
+    NSFontAttributeName : [self.view fontForTop:YES],
   };
   NSDictionary *bottomAttributes = @{
-    NSFontAttributeName : [NSFont
-        systemFontOfSize:self.view.bottomFontSize
-                  weight:[self.view resolvedWeightForTop:NO]],
+    NSFontAttributeName : [self.view fontForTop:NO],
   };
 
   NSSize topSize = [topText sizeWithAttributes:topAttributes];
