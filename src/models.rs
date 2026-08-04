@@ -127,6 +127,20 @@ pub struct SetColorsRequest {
     pub bottom: ColorStyle,
 }
 
+/// Per-line bold toggle for the two menubar lines.
+///
+/// Each line is independent: `top`/`bottom` being `true` forces that line to
+/// render with `NSFontWeightBold`, overriding the weight that `layout` would
+/// otherwise derive for it. `false` leaves the line's weight to the layout
+/// (the emphasized line is regular, the de-emphasized one is light).
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetBoldRequest {
+    pub id: String,
+    pub top: bool,
+    pub bottom: bool,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RectRequest {

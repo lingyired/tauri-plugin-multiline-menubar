@@ -21,6 +21,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const smallSizeValueEl = document.querySelector("#popup-small-size-value");
   const sizeEl = document.querySelector("#popup-size");
   const sizeValueEl = document.querySelector("#popup-size-value");
+  const topBoldEl = document.querySelector("#popup-top-bold");
+  const bottomBoldEl = document.querySelector("#popup-bottom-bold");
 
   // Role-based font sizes, mirrored from the native side. The two asymmetric
   // layouts are exact vertical mirrors of one another, so we keep the
@@ -64,11 +66,14 @@ window.addEventListener("DOMContentLoaded", () => {
   // The plugin sends the instance id and its current text whenever the popup
   // opens. Re-render so each instance shows its own content.
   listen("multiline-menubar://popup//open", (event) => {
-    const { id, top, bottom, topSize, bottomSize, layout } = event.payload;
+    const { id, top, bottom, topSize, bottomSize, layout, topBold, bottomBold } =
+      event.payload;
     currentInstanceId = id;
     if (headerEl) headerEl.textContent = `Menu Bar Popup — ${id}`;
     if (top !== undefined && top !== null) topEl.value = top;
     if (bottom !== undefined && bottom !== null) bottomEl.value = bottom;
+    if (topBold !== undefined && topBold !== null) topBoldEl.checked = !!topBold;
+    if (bottomBold !== undefined && bottomBold !== null) bottomBoldEl.checked = !!bottomBold;
     if (layout !== undefined && layout !== null) {
       const l = layout;
       layoutBottomEl.checked = l === 0;
@@ -152,6 +157,35 @@ window.addEventListener("DOMContentLoaded", () => {
         bottom: { type: "default" },
       },
     }).catch((err) => console.error("Failed to reset colors:", err));
+  });
+
+  // Apply the per-line bold toggle to whichever instance opened this popup.
+  // top/bottom are independent; false leaves that line's weight to the layout.
+  document.querySelector("#popup-bold").addEventListener("click", () => {
+    if (!currentInstanceId) {
+      console.warn("Popup bold ignored: no instance is targeted.");
+      return;
+    }
+    invoke("plugin:multiline-menubar|set_bold", {
+      payload: {
+        id: currentInstanceId,
+        top: topBoldEl.checked,
+        bottom: bottomBoldEl.checked,
+      },
+    }).catch((err) => console.error("Failed to set bold:", err));
+  });
+
+  // Clear both bold toggles and revert the lines to their layout weights.
+  document.querySelector("#popup-bold-reset").addEventListener("click", () => {
+    if (!currentInstanceId) {
+      console.warn("Popup bold reset ignored: no instance is targeted.");
+      return;
+    }
+    topBoldEl.checked = false;
+    bottomBoldEl.checked = false;
+    invoke("plugin:multiline-menubar|set_bold", {
+      payload: { id: currentInstanceId, top: false, bottom: false },
+    }).catch((err) => console.error("Failed to reset bold:", err));
   });
 
   // Live-update the font size readouts as the sliders move.

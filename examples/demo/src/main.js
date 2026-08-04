@@ -26,6 +26,12 @@ async function updateFontSizes(top, bottom) {
   });
 }
 
+async function updateBold(topBold, bottomBold) {
+  await invoke("plugin:multiline-menubar|set_bold", {
+    payload: { id: ID, top: topBold, bottom: bottomBold },
+  });
+}
+
 async function showMenubar() {
   await invoke("plugin:multiline-menubar|set_visible", {
     payload: { id: ID, visible: true },
@@ -330,6 +336,40 @@ window.addEventListener("DOMContentLoaded", () => {
       .catch((err) => {
         document.querySelector("#color-log").textContent = `Error: ${err}`;
       });
+  });
+
+  // Bold controls: one checkbox per line, independent of layout.
+  const topBoldEl = document.querySelector("#top-bold");
+  const bottomBoldEl = document.querySelector("#bottom-bold");
+
+  const applyBold = () => {
+    const top = topBoldEl.checked;
+    const bottom = bottomBoldEl.checked;
+    updateBold(top, bottom)
+      .then(() => {
+        const parts = [];
+        if (top) parts.push("top");
+        if (bottom) parts.push("bottom");
+        document.querySelector("#bold-log").textContent = parts.length
+          ? `Bold: ${parts.join(" + ")}`
+          : "Bold cleared (layout weights)";
+      })
+      .catch((err) => {
+        document.querySelector("#bold-log").textContent = `Error: ${err}`;
+      });
+  };
+
+  document
+    .querySelector("#bold-form")
+    .addEventListener("submit", (e) => {
+      e.preventDefault();
+      applyBold();
+    });
+
+  document.querySelector("#reset-bold").addEventListener("click", () => {
+    topBoldEl.checked = false;
+    bottomBoldEl.checked = false;
+    applyBold();
   });
 
   // Create the "main" instance and wire events.

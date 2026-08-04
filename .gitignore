@@ -15,3 +15,6 @@ node_modules/
 
 dist-js
 dist
+
+# Project memory / agent working data (not part of the plugin)
+.workbuddy/

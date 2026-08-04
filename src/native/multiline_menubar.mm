@@ -57,6 +57,10 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
 // Per-line text color. `nil` => system `textColor` (follows light/dark mode).
 @property (copy, nonatomic) NSColor *topColor;
 @property (copy, nonatomic) NSColor *bottomColor;
+// Per-line bold overrides. When set, that line renders with
+// `NSFontWeightBold` regardless of the weight `layout` would assign it.
+@property (assign, nonatomic) BOOL topBold;
+@property (assign, nonatomic) BOOL bottomBold;
 + (NSFontWeight)weightForTop:(BOOL)isTop layout:(MenubarLayoutMode)layout;
 @end
 
@@ -70,6 +74,8 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
     _topFontSize = kDefaultSmallSize;
     _bottomFontSize = kDefaultLargeSize;
     _layoutMode = MenubarLayoutEmphasisBottom;
+    _topBold = NO;
+    _bottomBold = NO;
   }
   return self;
 }
@@ -84,6 +90,17 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
   return isTop ? NSFontWeightLight : NSFontWeightRegular;
 }
 
+/// Effective weight for a line: a bold override wins, otherwise fall back to
+/// the layout-derived weight. Used by both `drawRect:` and `updateWidth` so
+/// the measured width matches what is painted (otherwise bold text clips).
+- (NSFontWeight)resolvedWeightForTop:(BOOL)isTop {
+  BOOL bold = isTop ? self.topBold : self.bottomBold;
+  if (bold) {
+    return NSFontWeightBold;
+  }
+  return [MultilineMenubarView weightForTop:isTop layout:self.layoutMode];
+}
+
 - (void)drawRect:(NSRect)dirtyRect {
   [super drawRect:dirtyRect];
 
@@ -92,12 +109,10 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
 
   NSFont *topFont = [NSFont
       systemFontOfSize:self.topFontSize
-                weight:[MultilineMenubarView weightForTop:YES
-                                                   layout:self.layoutMode]];
+                weight:[self resolvedWeightForTop:YES]];
   NSFont *bottomFont = [NSFont
       systemFontOfSize:self.bottomFontSize
-                weight:[MultilineMenubarView weightForTop:NO
-                                                   layout:self.layoutMode]];
+                weight:[self resolvedWeightForTop:NO]];
 
   NSRect topRect;
   NSRect bottomRect;
@@ -266,14 +281,12 @@ static MultilineMenubarHoverCallback g_hoverCallback = NULL;
   NSDictionary *topAttributes = @{
     NSFontAttributeName : [NSFont
         systemFontOfSize:self.view.topFontSize
-                  weight:[MultilineMenubarView weightForTop:YES
-                                                     layout:self.layoutMode]],
+                  weight:[self.view resolvedWeightForTop:YES]],
   };
   NSDictionary *bottomAttributes = @{
     NSFontAttributeName : [NSFont
         systemFontOfSize:self.view.bottomFontSize
-                  weight:[MultilineMenubarView weightForTop:NO
-                                                     layout:self.layoutMode]],
+                  weight:[self.view resolvedWeightForTop:NO]],
   };
 
   NSSize topSize = [topText sizeWithAttributes:topAttributes];
@@ -633,6 +646,18 @@ void multiline_menubar_set_color(const char *id, const char *top_json,
     [inst.view setNeedsDisplay:YES];
     inst.statusItem.button.needsDisplay = YES;
     [inst updateWidth];
+  });
+}
+
+void multiline_menubar_set_bold(const char *id, int top_bold, int bottom_bold) {
+  NSString *key = key_from_id(id);
+  dispatch_async(dispatch_get_main_queue(), ^{
+    MenubarInstance *inst = ensure_instance(key);
+    inst.view.topBold = top_bold != 0;
+    inst.view.bottomBold = bottom_bold != 0;
+    // `redraw_instance` repaints and re-measures the width, so a bold line
+    // grows the status item instead of clipping.
+    redraw_instance(inst);
   });
 }
 

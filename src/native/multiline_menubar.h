@@ -91,6 +91,17 @@ void multiline_menubar_set_color(const char *id, const char *top_json,
                                  const char *bottom_json);
 
 /**
+ * Set the per-line bold toggle for the top and bottom lines.
+ *
+ * @param top_bold     Non-zero forces the top line to render with
+ *                     `NSFontWeightBold`, overriding the weight `layout` would
+ *                     otherwise assign it. Zero leaves the top line's weight to
+ *                     the layout.
+ * @param bottom_bold  Same, for the bottom line.
+ */
+void multiline_menubar_set_bold(const char *id, int top_bold, int bottom_bold);
+
+/**
  * Set the tooltip shown when hovering the menubar item. Pass NULL to clear.
  */
 void multiline_menubar_set_tooltip(const char *id, const char *tooltip);

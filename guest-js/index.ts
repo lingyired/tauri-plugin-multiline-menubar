@@ -122,6 +122,15 @@ export interface SetColorsOptions {
   bottom: ColorStyle
 }
 
+/** Per-line bold toggle for the two menubar lines. */
+export interface SetBoldOptions {
+  id: string
+  /** Force the top line bold, overriding the weight `layout` derives. */
+  top: boolean
+  /** Force the bottom line bold, overriding the weight `layout` derives. */
+  bottom: boolean
+}
+
 export interface ClickEvent {
   id: string
   position: { x: number; y: number }
@@ -283,6 +292,20 @@ export async function rect(options: IdOptions): Promise<Rect> {
  */
 export async function setColors(options: SetColorsOptions): Promise<void> {
   return await invoke('plugin:multiline-menubar|set_colors', {
+    payload: options,
+  })
+}
+
+/**
+ * Force the top and/or bottom line bold, independently of `layout`.
+ *
+ * Each line is controlled separately: `top`/`bottom` set to `true` renders
+ * that line with a bold weight, overriding the weight the layout would
+ * otherwise assign it. `false` leaves the line's weight to the layout (the
+ * emphasized line regular, the de-emphasized one light).
+ */
+export async function setBold(options: SetBoldOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|set_bold', {
     payload: options,
   })
 }

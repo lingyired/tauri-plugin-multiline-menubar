@@ -58,6 +58,7 @@ import {
   setLayout,
   setTooltip,
   setColors,
+  setBold,
   setMenu,
   removeMenu,
   onMenuSelection,
@@ -87,6 +88,9 @@ await setFontSizes({ id: "main", top: 8, bottom: 14 });
 await setLayout({ id: "main", layout: 1 });
 
 // A left click on the item automatically opens the "popup" window below it.
+
+// Force the top and/or bottom line bold, independent of the layout:
+await setBold({ id: "main", top: true, bottom: false });
 // Listen to the click event if you want to drive the popup yourself instead.
 await listen(EVENT_CLICK, (e) => {
   console.log("clicked", e.payload); // { button, x, y, width, height }
@@ -180,6 +184,8 @@ The font size of each line can be customized independently via `setFontSizes`. V
 
 - **Top label**: 5–11 pt (default 7)
 - **Bottom value**: 8–16 pt (default 12)
+
+The weight of each line can also be overridden independently via `setBold`: pass `top`/`bottom` as `true` to force that line bold (overriding the weight `layout` assigns), or `false` to leave it to the layout.
 
 On click, the native helper measures the status item's on-screen rectangle and
 calls back into Rust, which emits the `click` event and (when auto-popup is

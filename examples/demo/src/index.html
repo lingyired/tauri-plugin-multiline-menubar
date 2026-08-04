@@ -132,6 +132,28 @@
         </form>
       </section>
 
+      <section class="card">
+        <h2>Bold</h2>
+        <p>
+          Force the top and/or bottom line bold, independent of the layout.
+          Each line is controlled separately; clearing a checkbox leaves that
+          line's weight to the layout (emphasized = regular, other = light).
+        </p>
+        <form id="bold-form">
+          <div class="field">
+            <label><input type="checkbox" id="top-bold" /> Bold top line</label>
+          </div>
+          <div class="field">
+            <label><input type="checkbox" id="bottom-bold" /> Bold bottom line</label>
+          </div>
+          <div class="row">
+            <button type="submit">Apply bold</button>
+            <button type="button" id="reset-bold">Reset to layout</button>
+            <span id="bold-log" class="muted"></span>
+          </div>
+        </form>
+      </section>
+
       <form class="row" id="greet-form">
         <input id="greet-input" placeholder="Enter a name..." />
         <button type="submit">Greet</button>

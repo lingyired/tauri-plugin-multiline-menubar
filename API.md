@@ -93,6 +93,7 @@ All functions are `async` and return a `Promise`.
 | `setLayout` | `(options: LayoutOptions) => Promise<void>` | Choose the vertical layout (`0`/`1`/`2`). See [Layout modes](#layout-modes). |
 | `setTooltip` | `(options: TooltipOptions) => Promise<void>` | Set the accessibility tooltip shown on hover. |
 | `setColors` | `(options: SetColorsOptions) => Promise<void>` | Set per-line text paint (`default` or `solid`). See [Color styles](#color-styles). |
+| `setBold` | `(options: SetBoldOptions) => Promise<void>` | Force the top and/or bottom line bold, independently of `layout`. See [Per-line bold](#per-line-bold). |
 
 ### Visibility & geometry
 
@@ -167,6 +168,7 @@ interface SetVisibleOptions { id: string; visible: boolean }
 interface PopupWindowOptions { label: string }
 interface SetAutoPopupOptions { enabled: boolean }
 interface SetColorsOptions   { id: string; top: ColorStyle; bottom: ColorStyle }
+interface SetBoldOptions     { id: string; top: boolean; bottom: boolean }
 interface SetMenuOptions     { id: string; items?: MenuItemDescriptor[] } // null/omit = detach
 interface Rect   { x: number; y: number; width: number; height: number }
 interface VisibilityResult { visible: boolean }
@@ -184,6 +186,30 @@ interface MenuSelectionEvent { id: string; itemId: string; checked?: boolean }
 type ColorStyle =
   | { type: "default" }                 // system textColor (follows light/dark mode)
   | { type: "solid"; value: string }    // "#rrggbb"
+```
+
+### `SetBoldOptions`
+
+```ts
+interface SetBoldOptions { id: string; top: boolean; bottom: boolean }
+```
+
+Force the top and/or bottom line **bold**, independent of the `layout`:
+
+- `top: true` / `bottom: true` → that line renders with a bold weight,
+  overriding the weight `layout` would otherwise assign it.
+- `false` → the line's weight is left to `layout` (the emphasized line is
+  regular, the de-emphasized one is light).
+
+Each line is controlled separately, so you can bold just the top, just the
+bottom, both, or neither. Bold is orthogonal to font size and color — combine
+`setBold` with `setFontSizes` / `setColors` freely. The status item is
+re-measured on every `setBold` call, so a bolded line grows instead of
+clipping.
+
+```ts
+// Bold only the top line:
+await setBold({ id: "main", top: true, bottom: false });
 ```
 
 ### `MenuItemDescriptor`
@@ -243,6 +269,7 @@ a single `payload` argument.
 | `set_tooltip` | `{ id, tooltip }` |
 | `set_visible` | `{ id, visible }` |
 | `set_colors` | `{ id, top, bottom }` (`top`/`bottom` are `ColorStyle` JSON) |
+| `set_bold` | `{ id, top, bottom }` (`top`/`bottom` are booleans) |
 | `set_menu` | `{ id, items? }` (`items: null`/omitted detaches) |
 | `remove_menu` | `{ id }` |
 | `rect` | `{ id }` |
@@ -271,6 +298,7 @@ above:
 | `set_tooltip(id, tooltip)` | `set_tooltip` |
 | `set_visible(id, visible)` | `set_visible` |
 | `set_colors(id, top, bottom)` | `set_colors` |
+| `set_bold(id, top, bottom)` | `set_bold` |
 | `set_menu(id, items)` | `set_menu` |
 | `remove_menu(id)` | `remove_menu` |
 | `rect(id) -> Rect` | `rect` |
@@ -293,7 +321,7 @@ The `default` permission set grants all of:
 
 `allow-create`, `allow-remove`, `allow-set-text`, `allow-set-font-sizes`,
 `allow-set-layout`, `allow-set-tooltip`, `allow-set-visible`, `allow-set-menu`,
-`allow-remove-menu`, `allow-set-colors`, `allow-rect`, `allow-set-popup-window`,
+`allow-remove-menu`, `allow-set-colors`, `allow-set-bold`, `allow-rect`, `allow-set-popup-window`,
 `allow-set-auto-popup`, `allow-open-popup`, `allow-close-popup`,
 `allow-toggle-popup`, `allow-is-visible`.
 

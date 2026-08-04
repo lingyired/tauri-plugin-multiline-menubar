@@ -37,6 +37,11 @@ extern "C" {
         top: *const c_char,
         bottom: *const c_char,
     );
+    fn multiline_menubar_set_bold(
+        id: *const c_char,
+        top_bold: std::os::raw::c_int,
+        bottom_bold: std::os::raw::c_int,
+    );
     fn multiline_menubar_get_rect(
         id: *const c_char,
         x: *mut f64,
@@ -107,6 +112,10 @@ static INSTANCE_TEXT: Mutex<Option<HashMap<String, (String, String)>>> = Mutex::
 /// Last top/bottom font size set per instance, so the popup can pre-fill its
 /// font-size sliders with the values of whichever instance opened it.
 static INSTANCE_STYLE: Mutex<Option<HashMap<String, (f64, f64)>>> = Mutex::new(None);
+
+/// Last top/bottom bold toggle set per instance, so the popup can pre-fill its
+/// bold toggles with the values of whichever instance opened it.
+static INSTANCE_WEIGHT: Mutex<Option<HashMap<String, (bool, bool)>>> = Mutex::new(None);
 
 /// Last layout mode per instance (0 = stacked, 1 = balanced), so the popup can
 /// pre-select which layout the opened instance uses.
@@ -447,6 +456,12 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
             .as_ref()
             .and_then(|m| m.get(id).copied())
             .unwrap_or(0);
+        let weight = INSTANCE_WEIGHT
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|m| m.get(id).copied())
+            .unwrap_or((false, false));
         let _ = app.emit_to(
             &label,
             POPUP_OPEN_TARGET_EVENT,
@@ -456,7 +471,9 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
                 "bottom": text.1,
                 "topSize": style.0,
                 "bottomSize": style.1,
-                "layout": layout
+                "layout": layout,
+                "topBold": weight.0,
+                "bottomBold": weight.1
             }),
         );
     }
@@ -629,6 +646,9 @@ impl<R: Runtime> MultilineMenubar<R> {
                 map.remove(&id);
             }
             if let Some(map) = INSTANCE_STYLE.lock().unwrap().as_mut() {
+                map.remove(&id);
+            }
+            if let Some(map) = INSTANCE_WEIGHT.lock().unwrap().as_mut() {
                 map.remove(&id);
             }
             if let Some(map) = INSTANCE_LAYOUT.lock().unwrap().as_mut() {
@@ -860,6 +880,43 @@ impl<R: Runtime> MultilineMenubar<R> {
         #[cfg(not(target_os = "macos"))]
         {
             let _ = (id, top, bottom);
+            Err(crate::Error::UnsupportedPlatform)
+        }
+    }
+
+    /// Set the per-line bold toggle for the top and bottom lines. `top_bold` /
+    /// `bottom_bold` being `true` forces that line to render bold, overriding
+    /// the weight `layout` would otherwise assign it. `false` leaves the line's
+    /// weight to the layout.
+    pub fn set_bold(
+        &self,
+        id: String,
+        top_bold: bool,
+        bottom_bold: bool,
+    ) -> crate::Result<()> {
+        #[cfg(target_os = "macos")]
+        {
+            // Remember the toggle so the popup can pre-fill this instance's
+            // value (mirrors INSTANCE_STYLE for font sizes).
+            INSTANCE_WEIGHT
+                .lock()
+                .unwrap()
+                .get_or_insert_with(HashMap::new)
+                .insert(id.clone(), (top_bold, bottom_bold));
+
+            let c = CString::new(id).map_err(|_| crate::Error::UnsupportedPlatform)?;
+            unsafe {
+                multiline_menubar_set_bold(
+                    c.as_ptr(),
+                    top_bold as std::os::raw::c_int,
+                    bottom_bold as std::os::raw::c_int,
+                )
+            };
+            return Ok(());
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (id, top_bold, bottom_bold);
             Err(crate::Error::UnsupportedPlatform)
         }
     }

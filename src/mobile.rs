@@ -69,4 +69,8 @@ impl<R: Runtime> MultilineMenubar<R> {
     pub fn is_visible(&self) -> crate::Result<bool> {
         Err(crate::Error::UnsupportedPlatform)
     }
+
+    pub fn set_bold(&self, _top_bold: bool, _bottom_bold: bool) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
 }
