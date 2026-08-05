@@ -154,6 +154,32 @@
         </form>
       </section>
 
+      <section class="card">
+        <h2>Font family</h2>
+        <p>
+          Swap the top and/or bottom line to a specific font family — the name
+          shown in macOS Font Book, e.g. <code>Menlo</code> or
+          <code>PingFang SC</code>. Leave a field empty to keep the system
+          font for that line. Unknown names fall back to the system font, and
+          the weight from the layout / bold controls is still honored.
+        </p>
+        <form id="font-family-form">
+          <div class="field">
+            <label for="top-font-family">Top line family</label>
+            <input type="text" id="top-font-family" placeholder="system font" />
+          </div>
+          <div class="field">
+            <label for="bottom-font-family">Bottom line family</label>
+            <input type="text" id="bottom-font-family" placeholder="system font" />
+          </div>
+          <div class="row">
+            <button type="submit">Apply font family</button>
+            <button type="button" id="reset-font-family">Reset to system font</button>
+            <span id="font-family-log" class="muted"></span>
+          </div>
+        </form>
+      </section>
+
       <form class="row" id="greet-form">
         <input id="greet-input" placeholder="Enter a name..." />
         <button type="submit">Greet</button>

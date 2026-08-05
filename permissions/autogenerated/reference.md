@@ -12,6 +12,7 @@ Default permissions for the multiline-menubar plugin (core rendering + read-only
 - `allow-set-visible`
 - `allow-set-colors`
 - `allow-set-bold`
+- `allow-set-font-family`
 - `allow-rect`
 - `allow-is-visible`
 - `allow-set-auto-popup`
@@ -281,6 +282,32 @@ Enables the set_colors command without any pre-configured scope.
 <td>
 
 Denies the set_colors command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:allow-set-font-family`
+
+</td>
+<td>
+
+Enables the set_font_family command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-set-font-family`
+
+</td>
+<td>
+
+Denies the set_font_family command without any pre-configured scope.
 
 </td>
 </tr>

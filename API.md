@@ -42,7 +42,8 @@ tauri::Builder::default()
 The `default` permission set grants the core rendering and read-only
 commands: `allow-create`, `allow-set-text`, `allow-set-font-sizes`,
 `allow-set-layout`, `allow-set-tooltip`, `allow-set-visible`, `allow-set-colors`,
-`allow-set-bold`, `allow-rect`, `allow-is-visible`, `allow-set-auto-popup`
+`allow-set-bold`, `allow-set-font-family`, `allow-rect`, `allow-is-visible`,
+`allow-set-auto-popup`
 (see [Permissions](#permissions)). Higher-impact commands (`remove`, menu
 injection, popup-window control) are **not** in the default set and must be
 granted explicitly, e.g. `multiline-menubar:allow-remove`.
@@ -98,6 +99,7 @@ All functions are `async` and return a `Promise`.
 | `setTooltip` | `(options: TooltipOptions) => Promise<void>` | Set the accessibility tooltip shown on hover. |
 | `setColors` | `(options: SetColorsOptions) => Promise<void>` | Set per-line text paint (`default` or `solid`). See [Color styles](#color-styles). |
 | `setBold` | `(options: SetBoldOptions) => Promise<void>` | Force the top and/or bottom line bold, independently of `layout`. See [Per-line bold](#per-line-bold). |
+| `setFontFamily` | `(options: SetFontFamilyOptions) => Promise<void>` | Set the top/bottom line font family (macOS font family name); `null`/`''` restores the system font. See [Per-line font family](#per-line-font-family). |
 
 ### Visibility & geometry
 
@@ -216,6 +218,33 @@ clipping.
 await setBold({ id: "main", top: true, bottom: false });
 ```
 
+### `SetFontFamilyOptions`
+
+```ts
+interface SetFontFamilyOptions {
+  id: string;
+  top: string | null;    // font family name, or null/'' for the system font
+  bottom: string | null; // font family name, or null/'' for the system font
+}
+```
+
+Swap the top and/or bottom line to a specific font **family** — the name shown
+in macOS Font Book, e.g. `"Menlo"`, `"PingFang SC"`:
+
+- `top`/`bottom` set to a family name → that line renders with the closest
+  face of the family at the weight `layout`/`setBold` asks for.
+- `null` (or an empty string) → the line falls back to the system font.
+- Unknown names silently fall back to the system font too.
+
+Each line is controlled separately, and font family is orthogonal to size,
+color and bold. The status item is re-measured on every `setFontFamily` call,
+so a wider family grows the item instead of clipping.
+
+```ts
+// Use a monospace family for the value line, keep the label on the system font:
+await setFontFamily({ id: "main", top: null, bottom: "Menlo" });
+```
+
 ### `MenuItemDescriptor`
 
 ```ts
@@ -274,6 +303,7 @@ a single `payload` argument.
 | `set_visible` | `{ id, visible }` |
 | `set_colors` | `{ id, top, bottom }` (`top`/`bottom` are `ColorStyle` JSON) |
 | `set_bold` | `{ id, top, bottom }` (`top`/`bottom` are booleans) |
+| `set_font_family` | `{ id, top, bottom }` (`top`/`bottom` are font family names or `null`) |
 | `set_menu` | `{ id, items? }` (`items: null`/omitted detaches) |
 | `remove_menu` | `{ id }` |
 | `rect` | `{ id }` |
@@ -303,6 +333,7 @@ above:
 | `set_visible(id, visible)` | `set_visible` |
 | `set_colors(id, top, bottom)` | `set_colors` |
 | `set_bold(id, top, bottom)` | `set_bold` |
+| `set_font_family(id, top, bottom)` | `set_font_family` |
 | `set_menu(id, items)` | `set_menu` |
 | `remove_menu(id)` | `remove_menu` |
 | `rect(id) -> Rect` | `rect` |
@@ -325,7 +356,8 @@ The `default` permission set (core rendering + read-only queries) includes:
 
 `allow-create`, `allow-set-text`, `allow-set-font-sizes`, `allow-set-layout`,
 `allow-set-tooltip`, `allow-set-visible`, `allow-set-colors`, `allow-set-bold`,
-`allow-rect`, `allow-is-visible`, `allow-set-auto-popup`.
+`allow-set-font-family`, `allow-rect`, `allow-is-visible`,
+`allow-set-auto-popup`.
 
 Not included by default (grant explicitly when needed):
 

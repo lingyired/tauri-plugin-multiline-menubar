@@ -80,6 +80,15 @@ impl<R: Runtime> MultilineMenubar<R> {
         Err(crate::Error::UnsupportedPlatform)
     }
 
+    pub fn set_font_family(
+        &self,
+        _id: String,
+        _top: Option<String>,
+        _bottom: Option<String>,
+    ) -> crate::Result<()> {
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
     pub fn rect(&self, _id: String) -> crate::Result<Rect> {
         Err(crate::Error::UnsupportedPlatform)
     }

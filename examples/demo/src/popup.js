@@ -23,6 +23,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const sizeValueEl = document.querySelector("#popup-size-value");
   const topBoldEl = document.querySelector("#popup-top-bold");
   const bottomBoldEl = document.querySelector("#popup-bottom-bold");
+  const topFamilyEl = document.querySelector("#popup-top-family");
+  const bottomFamilyEl = document.querySelector("#popup-bottom-family");
 
   // Role-based font sizes, mirrored from the native side. The two asymmetric
   // layouts are exact vertical mirrors of one another, so we keep the
@@ -66,14 +68,28 @@ window.addEventListener("DOMContentLoaded", () => {
   // The plugin sends the instance id and its current text whenever the popup
   // opens. Re-render so each instance shows its own content.
   listen("multiline-menubar://popup//open", (event) => {
-    const { id, top, bottom, topSize, bottomSize, layout, topBold, bottomBold } =
-      event.payload;
+    const {
+      id,
+      top,
+      bottom,
+      topSize,
+      bottomSize,
+      layout,
+      topBold,
+      bottomBold,
+      topFontFamily,
+      bottomFontFamily,
+    } = event.payload;
     currentInstanceId = id;
     if (headerEl) headerEl.textContent = `Menu Bar Popup — ${id}`;
     if (top !== undefined && top !== null) topEl.value = top;
     if (bottom !== undefined && bottom !== null) bottomEl.value = bottom;
     if (topBold !== undefined && topBold !== null) topBoldEl.checked = !!topBold;
     if (bottomBold !== undefined && bottomBold !== null) bottomBoldEl.checked = !!bottomBold;
+    topFamilyEl.value =
+      topFontFamily !== undefined && topFontFamily !== null ? topFontFamily : "";
+    bottomFamilyEl.value =
+      bottomFontFamily !== undefined && bottomFontFamily !== null ? bottomFontFamily : "";
     if (layout !== undefined && layout !== null) {
       const l = layout;
       layoutBottomEl.checked = l === 0;
@@ -187,6 +203,34 @@ window.addEventListener("DOMContentLoaded", () => {
       payload: { id: currentInstanceId, top: false, bottom: false },
     }).catch((err) => console.error("Failed to reset bold:", err));
   });
+
+  // Apply the per-line font family to whichever instance opened this popup.
+  // Empty fields mean "system font".
+  const applyPopupFontFamily = () => {
+    if (!currentInstanceId) {
+      console.warn("Popup font family ignored: no instance is targeted.");
+      return;
+    }
+    invoke("plugin:multiline-menubar|set_font_family", {
+      payload: {
+        id: currentInstanceId,
+        top: topFamilyEl.value.trim() || null,
+        bottom: bottomFamilyEl.value.trim() || null,
+      },
+    }).catch((err) => console.error("Failed to set font family:", err));
+  };
+
+  document
+    .querySelector("#popup-font-family")
+    .addEventListener("click", applyPopupFontFamily);
+
+  document
+    .querySelector("#popup-font-family-reset")
+    .addEventListener("click", () => {
+      topFamilyEl.value = "";
+      bottomFamilyEl.value = "";
+      applyPopupFontFamily();
+    });
 
   // Live-update the font size readouts as the sliders move.
   largeSizeEl.addEventListener("input", () => {

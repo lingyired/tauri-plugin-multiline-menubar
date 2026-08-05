@@ -42,6 +42,11 @@ extern "C" {
         top_bold: std::os::raw::c_int,
         bottom_bold: std::os::raw::c_int,
     );
+    fn multiline_menubar_set_font_family(
+        id: *const c_char,
+        top: *const c_char,
+        bottom: *const c_char,
+    );
     fn multiline_menubar_get_rect(
         id: *const c_char,
         x: *mut f64,
@@ -137,6 +142,8 @@ struct InstanceState {
     style: (f64, f64),
     /// Last top/bottom bold toggle.
     weight: (bool, bool),
+    /// Last top/bottom font family. `None` => system font.
+    font_family: (Option<Arc<str>>, Option<Arc<str>>),
     /// Last layout mode (0 = stacked, 1 = balanced).
     layout: i32,
 }
@@ -147,6 +154,7 @@ impl Default for InstanceState {
             text: (Arc::from(""), Arc::from("")),
             style: (7.0, 12.0),
             weight: (false, false),
+            font_family: (None, None),
             layout: 0,
         }
     }
@@ -557,7 +565,9 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
                 "bottomSize": state.style.1,
                 "layout": state.layout,
                 "topBold": state.weight.0,
-                "bottomBold": state.weight.1
+                "bottomBold": state.weight.1,
+                "topFontFamily": state.font_family.0,
+                "bottomFontFamily": state.font_family.1
             }),
         );
     }
@@ -1047,6 +1057,51 @@ impl<R: Runtime> MultilineMenubar<R> {
         #[cfg(not(target_os = "macos"))]
         {
             let _ = (id, top_bold, bottom_bold);
+            Err(crate::Error::UnsupportedPlatform)
+        }
+    }
+
+    /// Set the per-line font family for the top and bottom lines. Each is a
+    /// macOS font *family* name (e.g. `"Menlo"`, `"PingFang SC"`); `None` or
+    /// an empty string falls back to the system font for that line.
+    pub fn set_font_family(
+        &self,
+        id: String,
+        top: Option<String>,
+        bottom: Option<String>,
+    ) -> crate::Result<()> {
+        #[cfg(target_os = "macos")]
+        {
+            // Remember the families so the popup can pre-fill this instance's
+            // values (mirrors the style bookkeeping for font sizes).
+            instances()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(id.clone())
+                .or_default()
+                .font_family = (top.as_deref().map(Arc::from), bottom.as_deref().map(Arc::from));
+
+            let id_c = CString::new(id).map_err(|_| {
+                crate::Error::InvalidArgument("id contains a NUL byte".into())
+            })?;
+            let top_c = CString::new(top.unwrap_or_default()).map_err(|_| {
+                crate::Error::InvalidArgument("top font family contains a NUL byte".into())
+            })?;
+            let bottom_c = CString::new(bottom.unwrap_or_default()).map_err(|_| {
+                crate::Error::InvalidArgument("bottom font family contains a NUL byte".into())
+            })?;
+            unsafe {
+                multiline_menubar_set_font_family(
+                    id_c.as_ptr(),
+                    top_c.as_ptr(),
+                    bottom_c.as_ptr(),
+                )
+            };
+            return Ok(());
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (id, top, bottom);
             Err(crate::Error::UnsupportedPlatform)
         }
     }

@@ -50,8 +50,8 @@ Add the default capability:
 
 The `multiline-menubar:default` permission set covers core rendering and
 read-only queries: `create`, `set_text`, `set_font_sizes`, `set_layout`,
-`set_tooltip`, `set_visible`, `set_colors`, `set_bold`, `rect`,
-`is_visible`, `set_auto_popup`.
+`set_tooltip`, `set_visible`, `set_colors`, `set_bold`, `set_font_family`,
+`rect`, `is_visible`, `set_auto_popup`.
 
 Higher-impact commands are **not** included by default and must be granted
 explicitly when needed:
@@ -91,6 +91,7 @@ import {
   setTooltip,
   setColors,
   setBold,
+  setFontFamily,
   setMenu,
   removeMenu,
   onMenuSelection,
@@ -123,6 +124,10 @@ await setLayout({ id: "main", layout: 1 });
 
 // Force the top and/or bottom line bold, independent of the layout:
 await setBold({ id: "main", top: true, bottom: false });
+
+// Swap a line to a specific font family (macOS Font Book name); pass
+// null/'' to restore the system font. Unknown names fall back silently.
+await setFontFamily({ id: "main", top: null, bottom: "Menlo" });
 // Listen to the click event if you want to drive the popup yourself instead.
 await listen(EVENT_CLICK, (e) => {
   console.log("clicked", e.payload); // { button, x, y, width, height }
@@ -218,6 +223,8 @@ The font size of each line can be customized independently via `setFontSizes`. V
 - **Bottom value**: 8–16 pt (default 12)
 
 The weight of each line can also be overridden independently via `setBold`: pass `top`/`bottom` as `true` to force that line bold (overriding the weight `layout` assigns), or `false` to leave it to the layout.
+
+The font **family** of each line can likewise be set independently via `setFontFamily`: pass a macOS font family name from Font Book (e.g. `"Menlo"`, `"PingFang SC"`) for `top`/`bottom`, or `null`/`''` to keep the system font. The line still resolves the weight `layout`/`setBold` asks for, using the closest face the family provides; unknown names fall back to the system font.
 
 On click, the native helper measures the status item's on-screen rectangle and
 calls back into Rust, which emits the `click` event and (when auto-popup is

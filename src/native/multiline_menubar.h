@@ -102,6 +102,17 @@ void multiline_menubar_set_color(const char *id, const char *top_json,
 void multiline_menubar_set_bold(const char *id, int top_bold, int bottom_bold);
 
 /**
+ * Set the per-line font family for the top and bottom lines.
+ *
+ * Each argument is a macOS font *family* name (e.g. "Menlo", "PingFang SC"),
+ * or NULL/empty to fall back to the system font for that line. A line keeps
+ * resolving the weight `layout`/bold asks for, using the closest face the
+ * family provides; unknown names silently fall back to the system font.
+ */
+void multiline_menubar_set_font_family(const char *id, const char *top_family,
+                                       const char *bottom_family);
+
+/**
  * Set the tooltip shown when hovering the menubar item. Pass NULL to clear.
  */
 void multiline_menubar_set_tooltip(const char *id, const char *tooltip);

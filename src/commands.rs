@@ -95,6 +95,15 @@ pub(crate) async fn set_bold<R: Runtime>(
 }
 
 #[command]
+pub(crate) async fn set_font_family<R: Runtime>(
+    app: AppHandle<R>,
+    payload: SetFontFamilyRequest,
+) -> crate::Result<()> {
+    app.multiline_menubar()
+        .set_font_family(payload.id, payload.top, payload.bottom)
+}
+
+#[command]
 pub(crate) async fn remove_menu<R: Runtime>(
     app: AppHandle<R>,
     payload: IdRequest,

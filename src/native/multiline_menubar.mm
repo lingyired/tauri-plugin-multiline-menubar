@@ -61,15 +61,22 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
 // `NSFontWeightBold` regardless of the weight `layout` would assign it.
 @property (assign, nonatomic) BOOL topBold;
 @property (assign, nonatomic) BOOL bottomBold;
+// Per-line font family. `nil`/empty => system font. Accepts a macOS font
+// *family* name (e.g. "Menlo", "PingFang SC"); the line still resolves the
+// weight `layout`/bold asks for, using the closest face the family provides.
+@property (copy, nonatomic) NSString *topFontFamily;
+@property (copy, nonatomic) NSString *bottomFontFamily;
 // Cached fonts for the two lines. Creating an NSFont round-trips the font
 // server, so under per-second text refreshes rebuilding them every frame is
-// wasteful; they are rebuilt lazily only when size or weight actually change.
+// wasteful; they are rebuilt lazily only when size, weight or family change.
 @property (strong, nonatomic) NSFont *cachedTopFont;
 @property (strong, nonatomic) NSFont *cachedBottomFont;
 @property (assign, nonatomic) CGFloat cachedTopSize;
 @property (assign, nonatomic) CGFloat cachedBottomSize;
 @property (assign, nonatomic) NSFontWeight cachedTopWeight;
 @property (assign, nonatomic) NSFontWeight cachedBottomWeight;
+@property (copy, nonatomic) NSString *cachedTopFamily;
+@property (copy, nonatomic) NSString *cachedBottomFamily;
 + (NSFontWeight)weightForTop:(BOOL)isTop layout:(MenubarLayoutMode)layout;
 @end
 
@@ -110,26 +117,71 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
   return [MultilineMenubarView weightForTop:isTop layout:self.layoutMode];
 }
 
-/// The font for a line, rebuilt lazily only when its size or weight changes.
-/// Both `drawRect:` and `updateWidth` go through this so they share one
-/// cached font per line instead of allocating two fresh NSFonts per frame.
+/// Normalize a family name for cache comparison: `nil` and empty both mean
+/// "system font", so they must compare equal.
+static NSString *family_key(NSString *family) {
+  return (family.length > 0) ? family : @"";
+}
+
+/// Map a `NSFontWeight` onto the 1-15 weight scale `NSFontManager` uses, so a
+/// named family honors the bold/light overrides instead of always resolving
+/// to its regular face.
+static NSInteger nsfontmanager_weight(NSFontWeight weight) {
+  if (weight <= NSFontWeightUltraLight) return 2;
+  if (weight <= NSFontWeightThin) return 3;
+  if (weight <= NSFontWeightLight) return 4;
+  if (weight <= NSFontWeightRegular) return 5;
+  if (weight <= NSFontWeightMedium) return 6;
+  if (weight <= NSFontWeightSemibold) return 7;
+  if (weight <= NSFontWeightBold) return 8;
+  if (weight <= NSFontWeightHeavy) return 9;
+  return 10;
+}
+
+/// Build the font for a line: a named family wins when set and resolvable,
+/// otherwise the system font at the effective size/weight.
+- (NSFont *)makeFontForTop:(BOOL)isTop {
+  CGFloat size = isTop ? self.topFontSize : self.bottomFontSize;
+  NSFontWeight weight = [self resolvedWeightForTop:isTop];
+  NSString *family = isTop ? self.topFontFamily : self.bottomFontFamily;
+  if (family.length > 0) {
+    NSFont *named = [[NSFontManager sharedFontManager]
+        fontWithFamily:family
+                traits:0
+                weight:nsfontmanager_weight(weight)
+                  size:size];
+    if (named) {
+      return named;
+    }
+  }
+  return [NSFont systemFontOfSize:size weight:weight];
+}
+
+/// The font for a line, rebuilt lazily only when its size, weight or family
+/// changes. Both `drawRect:` and `updateWidth` go through this so they share
+/// one cached font per line instead of allocating two fresh NSFonts per frame.
 - (NSFont *)fontForTop:(BOOL)isTop {
   CGFloat size = isTop ? self.topFontSize : self.bottomFontSize;
   NSFontWeight weight = [self resolvedWeightForTop:isTop];
+  NSString *family = isTop ? self.topFontFamily : self.bottomFontFamily;
   if (isTop) {
     if (_cachedTopFont == nil || _cachedTopSize != size ||
-        _cachedTopWeight != weight) {
-      _cachedTopFont = [NSFont systemFontOfSize:size weight:weight];
+        _cachedTopWeight != weight ||
+        ![family_key(_cachedTopFamily) isEqualToString:family_key(family)]) {
+      _cachedTopFont = [self makeFontForTop:YES];
       _cachedTopSize = size;
       _cachedTopWeight = weight;
+      _cachedTopFamily = [family copy];
     }
     return _cachedTopFont;
   }
   if (_cachedBottomFont == nil || _cachedBottomSize != size ||
-      _cachedBottomWeight != weight) {
-    _cachedBottomFont = [NSFont systemFontOfSize:size weight:weight];
+      _cachedBottomWeight != weight ||
+      ![family_key(_cachedBottomFamily) isEqualToString:family_key(family)]) {
+    _cachedBottomFont = [self makeFontForTop:NO];
     _cachedBottomSize = size;
     _cachedBottomWeight = weight;
+    _cachedBottomFamily = [family copy];
   }
   return _cachedBottomFont;
 }
@@ -683,6 +735,27 @@ void multiline_menubar_set_bold(const char *id, int top_bold, int bottom_bold) {
     inst.view.bottomBold = bottom_bold != 0;
     // `redraw_instance` repaints and re-measures the width, so a bold line
     // grows the status item instead of clipping.
+    redraw_instance(inst);
+  });
+}
+
+/// Set the per-line font family for the top and bottom lines. Each argument is
+/// a macOS font *family* name (e.g. "Menlo", "PingFang SC"), or NULL/empty to
+/// fall back to the system font for that line. A line keeps resolving the
+/// weight `layout`/`set_bold` asks for, using the closest face the family
+/// provides; unknown names silently fall back to the system font.
+void multiline_menubar_set_font_family(const char *id, const char *top_family,
+                                       const char *bottom_family) {
+  NSString *key = key_from_id(id);
+  NSString *topFamily =
+      top_family ? [NSString stringWithUTF8String:top_family] : @"";
+  NSString *bottomFamily =
+      bottom_family ? [NSString stringWithUTF8String:bottom_family] : @"";
+  dispatch_async(dispatch_get_main_queue(), ^{
+    MenubarInstance *inst = ensure_instance(key);
+    inst.view.topFontFamily = topFamily.length > 0 ? topFamily : nil;
+    inst.view.bottomFontFamily = bottomFamily.length > 0 ? bottomFamily : nil;
+    // A family change can alter the text width, so repaint *and* re-measure.
     redraw_instance(inst);
   });
 }

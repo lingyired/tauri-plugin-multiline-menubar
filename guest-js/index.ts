@@ -131,6 +131,23 @@ export interface SetBoldOptions {
   bottom: boolean
 }
 
+/**
+ * Per-line font family for the two menubar lines.
+ *
+ * Each field is a macOS font *family* name — the name shown in Font Book,
+ * e.g. `'Menlo'`, `'PingFang SC'`. `null` (or an empty string) keeps the
+ * system font for that line. A line still resolves the weight `setLayout` /
+ * `setBold` ask for, using the closest face the family provides; unknown
+ * names silently fall back to the system font.
+ */
+export interface SetFontFamilyOptions {
+  id: string
+  /** Font family for the top line, or `null`/`''` for the system font. */
+  top: string | null
+  /** Font family for the bottom line, or `null`/`''` for the system font. */
+  bottom: string | null
+}
+
 export interface ClickEvent {
   id: string
   position: { x: number; y: number }
@@ -306,6 +323,18 @@ export async function setColors(options: SetColorsOptions): Promise<void> {
  */
 export async function setBold(options: SetBoldOptions): Promise<void> {
   return await invoke('plugin:multiline-menubar|set_bold', {
+    payload: options,
+  })
+}
+
+/**
+ * Set the font family of the top and/or bottom line of an instance.
+ *
+ * Pass `null` (or `''`) for a line to restore its system font. See
+ * {@link SetFontFamilyOptions} for how the name is resolved.
+ */
+export async function setFontFamily(options: SetFontFamilyOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|set_font_family', {
     payload: options,
   })
 }

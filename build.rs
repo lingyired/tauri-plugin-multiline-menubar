@@ -10,6 +10,7 @@ const COMMANDS: &[&str] = &[
     "remove_menu",
     "set_colors",
     "set_bold",
+    "set_font_family",
     "rect",
     "is_visible",
     "set_popup_window",

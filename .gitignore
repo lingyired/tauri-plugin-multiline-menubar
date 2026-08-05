@@ -16,5 +16,9 @@ node_modules/
 dist-js
 dist
 
+# Demo app build artifacts (the demo has its own src-tauri)
+examples/demo/src-tauri/target/
+examples/demo/src-tauri/gen/
+
 # Project memory / agent working data (not part of the plugin)
 .workbuddy/

@@ -372,6 +372,42 @@ window.addEventListener("DOMContentLoaded", () => {
     applyBold();
   });
 
+  // Font-family controls: one text field per line; empty = system font.
+  const topFamilyEl = document.querySelector("#top-font-family");
+  const bottomFamilyEl = document.querySelector("#bottom-font-family");
+
+  const applyFontFamily = () => {
+    const top = topFamilyEl.value.trim() || null;
+    const bottom = bottomFamilyEl.value.trim() || null;
+    invoke("plugin:multiline-menubar|set_font_family", {
+      payload: { id: ID, top, bottom },
+    })
+      .then(() => {
+        const parts = [];
+        if (top) parts.push(`top: ${top}`);
+        if (bottom) parts.push(`bottom: ${bottom}`);
+        document.querySelector("#font-family-log").textContent = parts.length
+          ? `Families: ${parts.join(", ")}`
+          : "System font restored";
+      })
+      .catch((err) => {
+        document.querySelector("#font-family-log").textContent = `Error: ${err}`;
+      });
+  };
+
+  document
+    .querySelector("#font-family-form")
+    .addEventListener("submit", (e) => {
+      e.preventDefault();
+      applyFontFamily();
+    });
+
+  document.querySelector("#reset-font-family").addEventListener("click", () => {
+    topFamilyEl.value = "";
+    bottomFamilyEl.value = "";
+    applyFontFamily();
+  });
+
   // Create the "main" instance and wire events.
   invoke("plugin:multiline-menubar|create", {
     payload: { id: ID, top: topInput.value, bottom: bottomInput.value },

@@ -141,6 +141,21 @@ pub struct SetBoldRequest {
     pub bottom: bool,
 }
 
+/// Per-line font family for the two menubar lines.
+///
+/// Each field is a macOS font *family* name (e.g. `"Menlo"`, `"PingFang SC"`).
+/// `None` (or an empty string) keeps the system font for that line. The line
+/// still resolves the weight `layout`/`set_bold` asks for, using the closest
+/// face the family provides; unknown names silently fall back to the system
+/// font.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetFontFamilyRequest {
+    pub id: String,
+    pub top: Option<String>,
+    pub bottom: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RectRequest {
