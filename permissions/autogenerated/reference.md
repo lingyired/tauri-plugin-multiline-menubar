@@ -1,27 +1,20 @@
 ## Default Permission
 
-Default permissions for the multiline-menubar plugin
+Default permissions for the multiline-menubar plugin (core rendering + read-only queries). High-impact commands (remove, menu injection, popup window control) are intentionally NOT included — grant them explicitly, e.g. `multiline-menubar:allow-remove`.
 
 #### This default permission set includes the following:
 
 - `allow-create`
-- `allow-remove`
 - `allow-set-text`
 - `allow-set-font-sizes`
 - `allow-set-layout`
 - `allow-set-tooltip`
 - `allow-set-visible`
-- `allow-set-menu`
-- `allow-remove-menu`
 - `allow-set-colors`
 - `allow-set-bold`
 - `allow-rect`
-- `allow-set-popup-window`
-- `allow-set-auto-popup`
-- `allow-open-popup`
-- `allow-close-popup`
-- `allow-toggle-popup`
 - `allow-is-visible`
+- `allow-set-auto-popup`
 
 ## Permission Table
 

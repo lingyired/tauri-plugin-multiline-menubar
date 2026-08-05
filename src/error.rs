@@ -8,6 +8,8 @@ pub enum Error {
     Tauri(#[from] tauri::Error),
     #[error("Menu error: {0}")]
     Menu(String),
+    #[error("Invalid argument: {0}")]
+    InvalidArgument(String),
     #[error("Mobile plugin error: {0}")]
     Mobile(String),
     #[error("This feature is only supported on macOS")]

@@ -39,9 +39,13 @@ tauri::Builder::default()
 }
 ```
 
-The `default` permission set grants every command (see
-[Permissions](#permissions)). For a tighter setup, add only the `allow-*`
-identifiers you need.
+The `default` permission set grants the core rendering and read-only
+commands: `allow-create`, `allow-set-text`, `allow-set-font-sizes`,
+`allow-set-layout`, `allow-set-tooltip`, `allow-set-visible`, `allow-set-colors`,
+`allow-set-bold`, `allow-rect`, `allow-is-visible`, `allow-set-auto-popup`
+(see [Permissions](#permissions)). Higher-impact commands (`remove`, menu
+injection, popup-window control) are **not** in the default set and must be
+granted explicitly, e.g. `multiline-menubar:allow-remove`.
 
 ### JavaScript
 
@@ -317,13 +321,23 @@ above:
 
 ## Permissions
 
-The `default` permission set grants all of:
+The `default` permission set (core rendering + read-only queries) includes:
 
-`allow-create`, `allow-remove`, `allow-set-text`, `allow-set-font-sizes`,
-`allow-set-layout`, `allow-set-tooltip`, `allow-set-visible`, `allow-set-menu`,
-`allow-remove-menu`, `allow-set-colors`, `allow-set-bold`, `allow-rect`, `allow-set-popup-window`,
-`allow-set-auto-popup`, `allow-open-popup`, `allow-close-popup`,
-`allow-toggle-popup`, `allow-is-visible`.
+`allow-create`, `allow-set-text`, `allow-set-font-sizes`, `allow-set-layout`,
+`allow-set-tooltip`, `allow-set-visible`, `allow-set-colors`, `allow-set-bold`,
+`allow-rect`, `allow-is-visible`, `allow-set-auto-popup`.
+
+Not included by default (grant explicitly when needed):
+
+| Permission | Command |
+|---|---|
+| `multiline-menubar:allow-remove` | `remove` |
+| `multiline-menubar:allow-set-menu` | `set_menu` |
+| `multiline-menubar:allow-remove-menu` | `remove_menu` |
+| `multiline-menubar:allow-set-popup-window` | `set_popup_window` |
+| `multiline-menubar:allow-open-popup` | `open_popup` |
+| `multiline-menubar:allow-close-popup` | `close_popup` |
+| `multiline-menubar:allow-toggle-popup` | `toggle_popup` |
 
 Each command also has a `deny-*` counterpart (e.g. `multiline-menubar:deny-rect`)
 for explicit deny-listing. All identifiers are scoped under
