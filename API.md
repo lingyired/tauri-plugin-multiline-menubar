@@ -250,9 +250,9 @@ asymmetric modes mirrors the content without losing either size.
 
 | `layout` | Name | Description | Font range (per role) |
 | --- | --- | --- | --- |
-| `0` | EmphasisBottom (default) | Small label on top, large value below. | small top 5–11, large bottom 8–16 |
-| `1` | EmphasisTop | The vertical mirror — large value on top, small label below. | small bottom 5–11, large top 8–16 |
-| `2` | Equal | Both lines share one size, vertically centered & symmetric. | equal 5–11 (default `9`) |
+| `0` | EmphasisBottom (default) | Small label on top, large value below. | small top 7–10, large bottom 10–14 |
+| `1` | EmphasisTop | The vertical mirror — large value on top, small label below. | small bottom 7–10, large top 10–14 |
+| `2` | Equal | Both lines share one size, vertically centered & symmetric. | equal 8–12 (default `9`) |
 
 In `Equal` mode, pass equal `top` and `bottom` to `setFontSizes`.
 

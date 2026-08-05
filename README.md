@@ -112,7 +112,8 @@ await create({ id: "main" });
 await setText({ id: "main", top: "Sensor", bottom: "16W" });
 
 // Customize the font size (points) for each line. Values are clamped to the
-// supported range on the native side (small 5–11 pt, large 8–16 pt).
+// supported range on the native side (small 7–10 pt, large 10–14 pt,
+// equal 8–12 pt).
 await setFontSizes({ id: "main", top: 8, bottom: 14 });
 
 // Choose the vertical layout: 0 = small label on top / large value below
@@ -214,8 +215,9 @@ The view width is computed from the text so the menu bar item stays as narrow as
 
 The font size of each line can be customized independently via `setFontSizes`. Values are clamped on the native side to keep both lines inside the ~22 pt tall menu bar without overlapping:
 
-- **Top label**: 5–11 pt (default 7)
-- **Bottom value**: 8–16 pt (default 12)
+- **Small line** (top in `EmphasisBottom`): 7–10 pt (default 7)
+- **Large line** (bottom in `EmphasisBottom`): 10–14 pt (default 12)
+- **Equal layout** (both lines share one size): 8–12 pt (default 9)
 
 The weight of each line can also be overridden independently via `setBold`: pass `top`/`bottom` as `true` to force that line bold (overriding the weight `layout` assigns), or `false` to leave it to the layout.
 

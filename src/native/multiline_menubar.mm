@@ -24,17 +24,17 @@ typedef NS_ENUM(NSInteger, MenubarLayoutMode) {
 // Font-size ranges (points), keyed by the *role* a line plays rather than by
 // its position, so the two asymmetric layouts are exact mirrors of each other.
 // The de-emphasized (small) line:
-static const CGFloat kMinSmallSize = 5.0;
-static const CGFloat kMaxSmallSize = 11.0;
+static const CGFloat kMinSmallSize = 7.0;
+static const CGFloat kMaxSmallSize = 10.0;
 // The emphasized (large) line:
-static const CGFloat kMinLargeSize = 8.0;
-static const CGFloat kMaxLargeSize = 16.0;
+static const CGFloat kMinLargeSize = 10.0;
+static const CGFloat kMaxLargeSize = 14.0;
 // The equal layout shares ONE size across both lines, so the per-role ranges
 // above must not be applied there (a shared value of 14 would otherwise be
-// clamped to 11 on one line and stay 14 on the other, silently breaking
+// clamped to 10 on one line and stay 14 on the other, silently breaking
 // symmetry). Two full-size lines have to fit a ~22pt bar, which caps it.
-static const CGFloat kMinEqualSize = 5.0;
-static const CGFloat kMaxEqualSize = 11.0;
+static const CGFloat kMinEqualSize = 8.0;
+static const CGFloat kMaxEqualSize = 12.0;
 
 static const CGFloat kDefaultSmallSize = 7.0;
 static const CGFloat kDefaultLargeSize = 12.0;
