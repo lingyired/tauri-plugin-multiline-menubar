@@ -66,9 +66,15 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
 // weight `layout`/bold asks for, using the closest face the family provides.
 @property (copy, nonatomic) NSString *topFontFamily;
 @property (copy, nonatomic) NSString *bottomFontFamily;
+// Per-line monospaced-digit toggle. When the line has no explicit family,
+// it renders with the system monospaced-digit font so numeric text (e.g. a
+// speed readout) does not jitter as values change. An explicit family wins.
+@property (assign, nonatomic) BOOL topMonospaced;
+@property (assign, nonatomic) BOOL bottomMonospaced;
 // Cached fonts for the two lines. Creating an NSFont round-trips the font
 // server, so under per-second text refreshes rebuilding them every frame is
-// wasteful; they are rebuilt lazily only when size, weight or family change.
+// wasteful; they are rebuilt lazily only when size, weight, family or the
+// monospaced toggle change.
 @property (strong, nonatomic) NSFont *cachedTopFont;
 @property (strong, nonatomic) NSFont *cachedBottomFont;
 @property (assign, nonatomic) CGFloat cachedTopSize;
@@ -77,6 +83,8 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
 @property (assign, nonatomic) NSFontWeight cachedBottomWeight;
 @property (copy, nonatomic) NSString *cachedTopFamily;
 @property (copy, nonatomic) NSString *cachedBottomFamily;
+@property (assign, nonatomic) BOOL cachedTopMonospaced;
+@property (assign, nonatomic) BOOL cachedBottomMonospaced;
 + (NSFontWeight)weightForTop:(BOOL)isTop layout:(MenubarLayoutMode)layout;
 @end
 
@@ -92,6 +100,8 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
     _layoutMode = MenubarLayoutEmphasisBottom;
     _topBold = NO;
     _bottomBold = NO;
+    _topMonospaced = NO;
+    _bottomMonospaced = NO;
   }
   return self;
 }
@@ -139,7 +149,9 @@ static NSInteger nsfontmanager_weight(NSFontWeight weight) {
 }
 
 /// Build the font for a line: a named family wins when set and resolvable,
-/// otherwise the system font at the effective size/weight.
+/// otherwise the system font at the effective size/weight — using the
+/// monospaced-digit face when the line's `monospaced` toggle is on, so
+/// numeric text keeps a constant digit width (no jitter as values change).
 - (NSFont *)makeFontForTop:(BOOL)isTop {
   CGFloat size = isTop ? self.topFontSize : self.bottomFontSize;
   NSFontWeight weight = [self resolvedWeightForTop:isTop];
@@ -154,33 +166,41 @@ static NSInteger nsfontmanager_weight(NSFontWeight weight) {
       return named;
     }
   }
+  BOOL monospaced = isTop ? self.topMonospaced : self.bottomMonospaced;
+  if (monospaced) {
+    return [NSFont monospacedDigitSystemFontOfSize:size weight:weight];
+  }
   return [NSFont systemFontOfSize:size weight:weight];
 }
 
-/// The font for a line, rebuilt lazily only when its size, weight or family
-/// changes. Both `drawRect:` and `updateWidth` go through this so they share
-/// one cached font per line instead of allocating two fresh NSFonts per frame.
+/// The font for a line, rebuilt lazily only when its size, weight, family or
+/// monospaced toggle changes. Both `drawRect:` and `updateWidth` go through
+/// this so they share one cached font per line instead of allocating two
+/// fresh NSFonts per frame.
 - (NSFont *)fontForTop:(BOOL)isTop {
   CGFloat size = isTop ? self.topFontSize : self.bottomFontSize;
   NSFontWeight weight = [self resolvedWeightForTop:isTop];
   NSString *family = isTop ? self.topFontFamily : self.bottomFontFamily;
+  BOOL monospaced = isTop ? self.topMonospaced : self.bottomMonospaced;
   if (isTop) {
     if (_cachedTopFont == nil || _cachedTopSize != size ||
-        _cachedTopWeight != weight ||
+        _cachedTopWeight != weight || _cachedTopMonospaced != monospaced ||
         ![family_key(_cachedTopFamily) isEqualToString:family_key(family)]) {
       _cachedTopFont = [self makeFontForTop:YES];
       _cachedTopSize = size;
       _cachedTopWeight = weight;
+      _cachedTopMonospaced = monospaced;
       _cachedTopFamily = [family copy];
     }
     return _cachedTopFont;
   }
   if (_cachedBottomFont == nil || _cachedBottomSize != size ||
-      _cachedBottomWeight != weight ||
+      _cachedBottomWeight != weight || _cachedBottomMonospaced != monospaced ||
       ![family_key(_cachedBottomFamily) isEqualToString:family_key(family)]) {
     _cachedBottomFont = [self makeFontForTop:NO];
     _cachedBottomSize = size;
     _cachedBottomWeight = weight;
+    _cachedBottomMonospaced = monospaced;
     _cachedBottomFamily = [family copy];
   }
   return _cachedBottomFont;
@@ -633,6 +653,18 @@ void multiline_menubar_set_text(const char *id, const char *top,
   NSString *bottomText = bottom ? [NSString stringWithUTF8String:bottom] : @"";
   dispatch_async(dispatch_get_main_queue(), ^{
     MenubarInstance *inst = ensure_instance(key);
+
+    // Render cache: when neither line's text actually changed, skip the
+    // repaint and the width re-measure entirely. This is the hot path for
+    // e.g. per-second speed refreshes, where hosts may push the same value
+    // repeatedly (or race two updaters); marking the view dirty and
+    // re-measuring both lines every time would burn main-thread time for a
+    // frame that paints nothing new.
+    if ([inst.view.topText isEqualToString:topText] &&
+        [inst.view.bottomText isEqualToString:bottomText]) {
+      return;
+    }
+
     inst.view.topText = topText;
     inst.view.bottomText = bottomText;
     [inst.view setNeedsDisplay:YES];
@@ -756,6 +788,25 @@ void multiline_menubar_set_font_family(const char *id, const char *top_family,
     inst.view.topFontFamily = topFamily.length > 0 ? topFamily : nil;
     inst.view.bottomFontFamily = bottomFamily.length > 0 ? bottomFamily : nil;
     // A family change can alter the text width, so repaint *and* re-measure.
+    redraw_instance(inst);
+  });
+}
+
+/// Toggle per-line monospaced digits. When a line has no explicit font
+/// family, a non-zero value switches it to the system monospaced-digit font
+/// so numeric text keeps a constant digit width; zero restores the regular
+/// system font. An explicit family set via `set_font_family` takes precedence
+/// over this toggle.
+void multiline_menubar_set_monospaced(const char *id, int top_monospaced,
+                                      int bottom_monospaced) {
+  NSString *key = key_from_id(id);
+  dispatch_async(dispatch_get_main_queue(), ^{
+    MenubarInstance *inst = ensure_instance(key);
+    inst.view.topMonospaced = top_monospaced != 0;
+    inst.view.bottomMonospaced = bottom_monospaced != 0;
+    // The monospaced-digit face has different metrics than the regular one,
+    // so repaint *and* re-measure (a wider/narrower line grows or shrinks the
+    // status item instead of clipping).
     redraw_instance(inst);
   });
 }

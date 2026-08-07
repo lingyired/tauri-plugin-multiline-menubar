@@ -463,6 +463,18 @@
           "markdownDescription": "Denies the set_menu command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_monospaced command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-monospaced",
+          "markdownDescription": "Enables the set_monospaced command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_monospaced command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-monospaced",
+          "markdownDescription": "Denies the set_monospaced command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_popup_window command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-popup-window",
@@ -523,10 +535,10 @@
           "markdownDescription": "Denies the toggle_popup command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the multiline-menubar plugin (core rendering + read-only queries). High-impact commands (remove, menu injection, popup window control) are intentionally NOT included — grant them explicitly, e.g. `multiline-menubar:allow-remove`.\n#### This default permission set includes:\n\n- `allow-create`\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-layout`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-colors`\n- `allow-set-bold`\n- `allow-set-font-family`\n- `allow-rect`\n- `allow-is-visible`\n- `allow-set-auto-popup`",
+          "description": "Default permissions for the multiline-menubar plugin (core rendering + read-only queries). High-impact commands (remove, menu injection, popup window control) are intentionally NOT included — grant them explicitly, e.g. `multiline-menubar:allow-remove`.\n#### This default permission set includes:\n\n- `allow-create`\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-layout`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-colors`\n- `allow-set-bold`\n- `allow-set-font-family`\n- `allow-set-monospaced`\n- `allow-rect`\n- `allow-is-visible`\n- `allow-set-auto-popup`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the multiline-menubar plugin (core rendering + read-only queries). High-impact commands (remove, menu injection, popup window control) are intentionally NOT included — grant them explicitly, e.g. `multiline-menubar:allow-remove`.\n#### This default permission set includes:\n\n- `allow-create`\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-layout`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-colors`\n- `allow-set-bold`\n- `allow-set-font-family`\n- `allow-rect`\n- `allow-is-visible`\n- `allow-set-auto-popup`"
+          "markdownDescription": "Default permissions for the multiline-menubar plugin (core rendering + read-only queries). High-impact commands (remove, menu injection, popup window control) are intentionally NOT included — grant them explicitly, e.g. `multiline-menubar:allow-remove`.\n#### This default permission set includes:\n\n- `allow-create`\n- `allow-set-text`\n- `allow-set-font-sizes`\n- `allow-set-layout`\n- `allow-set-tooltip`\n- `allow-set-visible`\n- `allow-set-colors`\n- `allow-set-bold`\n- `allow-set-font-family`\n- `allow-set-monospaced`\n- `allow-rect`\n- `allow-is-visible`\n- `allow-set-auto-popup`"
         }
       ]
     }

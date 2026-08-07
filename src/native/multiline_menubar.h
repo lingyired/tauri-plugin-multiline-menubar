@@ -113,6 +113,20 @@ void multiline_menubar_set_font_family(const char *id, const char *top_family,
                                        const char *bottom_family);
 
 /**
+ * Set the per-line monospaced-digit toggle for the top and bottom lines.
+ *
+ * When a line has no explicit font family, `top_monospaced`/`bottom_monospaced`
+ * being non-zero switches that line to the system monospaced-digit font
+ * (`monospacedDigitSystemFont`), which keeps every digit the same width so
+ * frequently-updating numeric text (e.g. a network speed readout) does not
+ * jitter. Zero uses the regular system font. An explicit family (see
+ * `multiline_menubar_set_font_family`) takes precedence over this toggle —
+ * the user's explicit font choice wins.
+ */
+void multiline_menubar_set_monospaced(const char *id, int top_monospaced,
+                                      int bottom_monospaced);
+
+/**
  * Set the tooltip shown when hovering the menubar item. Pass NULL to clear.
  */
 void multiline_menubar_set_tooltip(const char *id, const char *tooltip);

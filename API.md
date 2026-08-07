@@ -100,6 +100,7 @@ All functions are `async` and return a `Promise`.
 | `setColors` | `(options: SetColorsOptions) => Promise<void>` | Set per-line text paint (`default` or `solid`). See [Color styles](#color-styles). |
 | `setBold` | `(options: SetBoldOptions) => Promise<void>` | Force the top and/or bottom line bold, independently of `layout`. See [Per-line bold](#per-line-bold). |
 | `setFontFamily` | `(options: SetFontFamilyOptions) => Promise<void>` | Set the top/bottom line font family (macOS font family name); `null`/`''` restores the system font. See [Per-line font family](#per-line-font-family). |
+| `setMonospaced` | `(options: SetMonospacedOptions) => Promise<void>` | Render a line with the system monospaced-digit font so digits keep a constant width (no jitter in numeric readouts). See [Monospaced digits](#monospaced-digits). |
 
 ### Visibility & geometry
 
@@ -245,6 +246,37 @@ so a wider family grows the item instead of clipping.
 await setFontFamily({ id: "main", top: null, bottom: "Menlo" });
 ```
 
+### `SetMonospacedOptions` & Monospaced digits
+
+```ts
+interface SetMonospacedOptions {
+  id: string;
+  top: boolean;    // render the top line with monospaced digits?
+  bottom: boolean; // render the bottom line with monospaced digits?
+}
+```
+
+Render a line with the system **monospaced-digit** font
+(`monospacedDigitSystemFont`) so every digit keeps the same width —
+frequently-updating numeric text (e.g. a network speed readout) does not
+jitter as values change:
+
+- `top`/`bottom` set to `true` → that line uses monospaced digits.
+- `false` (or `setMonospaced` never called) → the regular system font.
+- An explicit font family set via `setFontFamily` **takes precedence** over
+  this toggle — the user's explicit font choice wins (a family like `Menlo`
+  is already monospaced anyway).
+
+Each line is controlled separately, and the toggle is orthogonal to size,
+color, bold and family. The status item is re-measured on every
+`setMonospaced` call, so the monospaced-digit face (whose metrics differ from
+the proportional one) grows or shrinks the item instead of clipping.
+
+```ts
+// Keep the speed readout from jittering:
+await setMonospaced({ id: "main", top: false, bottom: true });
+```
+
 ### `MenuItemDescriptor`
 
 ```ts
@@ -304,6 +336,7 @@ a single `payload` argument.
 | `set_colors` | `{ id, top, bottom }` (`top`/`bottom` are `ColorStyle` JSON) |
 | `set_bold` | `{ id, top, bottom }` (`top`/`bottom` are booleans) |
 | `set_font_family` | `{ id, top, bottom }` (`top`/`bottom` are font family names or `null`) |
+| `set_monospaced` | `{ id, top, bottom }` (`top`/`bottom` are booleans) |
 | `set_menu` | `{ id, items? }` (`items: null`/omitted detaches) |
 | `remove_menu` | `{ id }` |
 | `rect` | `{ id }` |

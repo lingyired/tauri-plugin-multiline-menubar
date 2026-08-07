@@ -1,6 +1,6 @@
 {
   "name": "tauri-plugin-multiline-menubar-api",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "author": "tauri-plugin-multiline-menubar",
   "description": "",
   "type": "module",

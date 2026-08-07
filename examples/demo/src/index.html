@@ -180,6 +180,43 @@
         </form>
       </section>
 
+      <section class="card">
+        <h2>Monospaced digits</h2>
+        <p>
+          Render a line with the system monospaced-digit font so every digit
+          keeps the same width — frequently-updating numeric text (like the
+          simulated speed below) does not jitter. An explicit font family
+          above takes precedence over this toggle.
+        </p>
+        <form id="monospaced-form">
+          <div class="field">
+            <label><input type="checkbox" id="top-monospaced" /> Monospaced top line</label>
+          </div>
+          <div class="field">
+            <label><input type="checkbox" id="bottom-monospaced" /> Monospaced bottom line</label>
+          </div>
+          <div class="row">
+            <button type="submit">Apply monospaced</button>
+            <button type="button" id="reset-monospaced">Reset to system font</button>
+            <span id="monospaced-log" class="muted"></span>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Speed simulation</h2>
+        <p>
+          Push a random up/down speed to the menu bar once per second (up on
+          the top line, down on the bottom). With monospaced digits enabled
+          the numbers change width-stable; the plugin's render cache skips
+          repaints whenever the formatted text is unchanged.
+        </p>
+        <div class="row">
+          <button type="button" id="speed-toggle">Start simulating</button>
+          <span id="speed-log" class="muted">Not running</span>
+        </div>
+      </section>
+
       <form class="row" id="greet-form">
         <input id="greet-input" placeholder="Enter a name..." />
         <button type="submit">Greet</button>

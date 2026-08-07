@@ -104,6 +104,15 @@ pub(crate) async fn set_font_family<R: Runtime>(
 }
 
 #[command]
+pub(crate) async fn set_monospaced<R: Runtime>(
+    app: AppHandle<R>,
+    payload: SetMonospacedRequest,
+) -> crate::Result<()> {
+    app.multiline_menubar()
+        .set_monospaced(payload.id, payload.top, payload.bottom)
+}
+
+#[command]
 pub(crate) async fn remove_menu<R: Runtime>(
     app: AppHandle<R>,
     payload: IdRequest,

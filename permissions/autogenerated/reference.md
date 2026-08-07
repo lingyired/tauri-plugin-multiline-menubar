@@ -13,6 +13,7 @@ Default permissions for the multiline-menubar plugin (core rendering + read-only
 - `allow-set-colors`
 - `allow-set-bold`
 - `allow-set-font-family`
+- `allow-set-monospaced`
 - `allow-rect`
 - `allow-is-visible`
 - `allow-set-auto-popup`
@@ -386,6 +387,32 @@ Enables the set_menu command without any pre-configured scope.
 <td>
 
 Denies the set_menu command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:allow-set-monospaced`
+
+</td>
+<td>
+
+Enables the set_monospaced command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-set-monospaced`
+
+</td>
+<td>
+
+Denies the set_monospaced command without any pre-configured scope.
 
 </td>
 </tr>

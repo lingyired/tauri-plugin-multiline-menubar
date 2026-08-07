@@ -156,6 +156,23 @@ pub struct SetFontFamilyRequest {
     pub bottom: Option<String>,
 }
 
+/// Per-line monospaced-digit toggle for the two menubar lines.
+///
+/// When a line has no explicit font family, `top`/`bottom` being `true`
+/// switches that line to the system monospaced-digit font
+/// (`monospacedDigitSystemFont`), which keeps every digit the same width so
+/// frequently-updating numeric text (e.g. a network speed readout) does not
+/// jitter as values change. `false` uses the regular system font. An explicit
+/// font family (see [`SetFontFamilyRequest`]) takes precedence over this
+/// toggle.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetMonospacedRequest {
+    pub id: String,
+    pub top: bool,
+    pub bottom: bool,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RectRequest {

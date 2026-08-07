@@ -47,6 +47,11 @@ extern "C" {
         top: *const c_char,
         bottom: *const c_char,
     );
+    fn multiline_menubar_set_monospaced(
+        id: *const c_char,
+        top_monospaced: std::os::raw::c_int,
+        bottom_monospaced: std::os::raw::c_int,
+    );
     fn multiline_menubar_get_rect(
         id: *const c_char,
         x: *mut f64,
@@ -144,6 +149,8 @@ struct InstanceState {
     weight: (bool, bool),
     /// Last top/bottom font family. `None` => system font.
     font_family: (Option<Arc<str>>, Option<Arc<str>>),
+    /// Last top/bottom monospaced-digit toggle.
+    monospaced: (bool, bool),
     /// Last layout mode (0 = stacked, 1 = balanced).
     layout: i32,
 }
@@ -155,6 +162,7 @@ impl Default for InstanceState {
             style: (7.0, 12.0),
             weight: (false, false),
             font_family: (None, None),
+            monospaced: (false, false),
             layout: 0,
         }
     }
@@ -567,7 +575,9 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
                 "topBold": state.weight.0,
                 "bottomBold": state.weight.1,
                 "topFontFamily": state.font_family.0,
-                "bottomFontFamily": state.font_family.1
+                "bottomFontFamily": state.font_family.1,
+                "topMonospaced": state.monospaced.0,
+                "bottomMonospaced": state.monospaced.1
             }),
         );
     }
@@ -1102,6 +1112,49 @@ impl<R: Runtime> MultilineMenubar<R> {
         #[cfg(not(target_os = "macos"))]
         {
             let _ = (id, top, bottom);
+            Err(crate::Error::UnsupportedPlatform)
+        }
+    }
+
+    /// Set the per-line monospaced-digit toggle for the top and bottom lines.
+    /// When a line has no explicit font family, `top_monospaced` /
+    /// `bottom_monospaced` being `true` renders that line with the system
+    /// monospaced-digit font (constant digit width — numeric readouts like a
+    /// speed display don't jitter); `false` restores the regular system font.
+    /// An explicit font family (see [`Self::set_font_family`]) takes
+    /// precedence over this toggle.
+    pub fn set_monospaced(
+        &self,
+        id: String,
+        top_monospaced: bool,
+        bottom_monospaced: bool,
+    ) -> crate::Result<()> {
+        #[cfg(target_os = "macos")]
+        {
+            // Remember the toggle so the popup can pre-fill this instance's
+            // value (mirrors the style bookkeeping for font sizes).
+            instances()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(id.clone())
+                .or_default()
+                .monospaced = (top_monospaced, bottom_monospaced);
+
+            let c = CString::new(id).map_err(|_| {
+                crate::Error::InvalidArgument("id contains a NUL byte".into())
+            })?;
+            unsafe {
+                multiline_menubar_set_monospaced(
+                    c.as_ptr(),
+                    top_monospaced as std::os::raw::c_int,
+                    bottom_monospaced as std::os::raw::c_int,
+                )
+            };
+            return Ok(());
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (id, top_monospaced, bottom_monospaced);
             Err(crate::Error::UnsupportedPlatform)
         }
     }

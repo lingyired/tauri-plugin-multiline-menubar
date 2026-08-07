@@ -51,7 +51,7 @@ Add the default capability:
 The `multiline-menubar:default` permission set covers core rendering and
 read-only queries: `create`, `set_text`, `set_font_sizes`, `set_layout`,
 `set_tooltip`, `set_visible`, `set_colors`, `set_bold`, `set_font_family`,
-`rect`, `is_visible`, `set_auto_popup`.
+`set_monospaced`, `rect`, `is_visible`, `set_auto_popup`.
 
 Higher-impact commands are **not** included by default and must be granted
 explicitly when needed:

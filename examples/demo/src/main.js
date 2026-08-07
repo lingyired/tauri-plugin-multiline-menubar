@@ -32,6 +32,12 @@ async function updateBold(topBold, bottomBold) {
   });
 }
 
+async function updateMonospaced(topMonospaced, bottomMonospaced) {
+  await invoke("plugin:multiline-menubar|set_monospaced", {
+    payload: { id: ID, top: topMonospaced, bottom: bottomMonospaced },
+  });
+}
+
 async function showMenubar() {
   await invoke("plugin:multiline-menubar|set_visible", {
     payload: { id: ID, visible: true },
@@ -406,6 +412,88 @@ window.addEventListener("DOMContentLoaded", () => {
     topFamilyEl.value = "";
     bottomFamilyEl.value = "";
     applyFontFamily();
+  });
+
+  // Monospaced-digit controls: one checkbox per line, mirroring the Bold card.
+  // An explicit font family (above) takes precedence over this toggle.
+  const topMonoEl = document.querySelector("#top-monospaced");
+  const bottomMonoEl = document.querySelector("#bottom-monospaced");
+
+  const applyMonospaced = () => {
+    const top = topMonoEl.checked;
+    const bottom = bottomMonoEl.checked;
+    updateMonospaced(top, bottom)
+      .then(() => {
+        const parts = [];
+        if (top) parts.push("top");
+        if (bottom) parts.push("bottom");
+        document.querySelector("#monospaced-log").textContent = parts.length
+          ? `Monospaced: ${parts.join(" + ")}`
+          : "System font (proportional)";
+      })
+      .catch((err) => {
+        document.querySelector("#monospaced-log").textContent = `Error: ${err}`;
+      });
+  };
+
+  document
+    .querySelector("#monospaced-form")
+    .addEventListener("submit", (e) => {
+      e.preventDefault();
+      applyMonospaced();
+    });
+
+  document.querySelector("#reset-monospaced").addEventListener("click", () => {
+    topMonoEl.checked = false;
+    bottomMonoEl.checked = false;
+    applyMonospaced();
+  });
+
+  // Speed simulation: push a random up/down speed once per second (up on the
+  // top line, down on the bottom), formatted like a real traffic readout.
+  // With monospaced digits on, the digits keep a constant width; the render
+  // cache skips repaints when the formatted text is unchanged.
+  const speedToggleBtn = document.querySelector("#speed-toggle");
+  const speedLogEl = document.querySelector("#speed-log");
+  let speedTimer = null;
+
+  const formatSpeed = (bytesPerSec) => {
+    if (bytesPerSec < 1000) return `${bytesPerSec}B/s`;
+    const units = ["K/s", "M/s", "G/s", "T/s"];
+    let unit = Math.min(Math.floor(Math.log2(bytesPerSec) / 10), units.length - 1);
+    let value = bytesPerSec / Math.pow(1024, unit);
+    if (Math.round(value) >= 1000 && unit < units.length - 1) {
+      unit += 1;
+      value = bytesPerSec / Math.pow(1024, unit);
+    }
+    return value < 9.95
+      ? `${value.toFixed(1)}${units[unit]}`
+      : `${Math.round(value)}${units[unit]}`;
+  };
+
+  const tickSpeed = () => {
+    // Downlink usually dwarfs uplink; cap so the menu bar stays readable.
+    const up = Math.floor(Math.random() * 2 * 1024 * 1024);
+    const down = Math.floor(Math.random() * 40 * 1024 * 1024);
+    speedLogEl.textContent = `↑ ${formatSpeed(up)}  ↓ ${formatSpeed(down)}`;
+    invoke("plugin:multiline-menubar|set_text", {
+      payload: { id: ID, top: formatSpeed(up), bottom: formatSpeed(down) },
+    }).catch((err) => {
+      speedLogEl.textContent = `Error: ${err}`;
+    });
+  };
+
+  speedToggleBtn.addEventListener("click", () => {
+    if (speedTimer) {
+      clearInterval(speedTimer);
+      speedTimer = null;
+      speedToggleBtn.textContent = "Start simulating";
+      speedLogEl.textContent = "Stopped";
+    } else {
+      tickSpeed();
+      speedTimer = setInterval(tickSpeed, 1000);
+      speedToggleBtn.textContent = "Stop simulating";
+    }
   });
 
   // Create the "main" instance and wire events.

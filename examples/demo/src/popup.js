@@ -25,6 +25,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const bottomBoldEl = document.querySelector("#popup-bottom-bold");
   const topFamilyEl = document.querySelector("#popup-top-family");
   const bottomFamilyEl = document.querySelector("#popup-bottom-family");
+  const topMonoEl = document.querySelector("#popup-top-monospaced");
+  const bottomMonoEl = document.querySelector("#popup-bottom-monospaced");
 
   // Role-based font sizes, mirrored from the native side. The two asymmetric
   // layouts are exact vertical mirrors of one another, so we keep the
@@ -79,6 +81,8 @@ window.addEventListener("DOMContentLoaded", () => {
       bottomBold,
       topFontFamily,
       bottomFontFamily,
+      topMonospaced,
+      bottomMonospaced,
     } = event.payload;
     currentInstanceId = id;
     if (headerEl) headerEl.textContent = `Menu Bar Popup — ${id}`;
@@ -90,6 +94,10 @@ window.addEventListener("DOMContentLoaded", () => {
       topFontFamily !== undefined && topFontFamily !== null ? topFontFamily : "";
     bottomFamilyEl.value =
       bottomFontFamily !== undefined && bottomFontFamily !== null ? bottomFontFamily : "";
+    if (topMonospaced !== undefined && topMonospaced !== null)
+      topMonoEl.checked = !!topMonospaced;
+    if (bottomMonospaced !== undefined && bottomMonospaced !== null)
+      bottomMonoEl.checked = !!bottomMonospaced;
     if (layout !== undefined && layout !== null) {
       const l = layout;
       layoutBottomEl.checked = l === 0;
@@ -230,6 +238,34 @@ window.addEventListener("DOMContentLoaded", () => {
       topFamilyEl.value = "";
       bottomFamilyEl.value = "";
       applyPopupFontFamily();
+    });
+
+  // Apply the per-line monospaced-digit toggle to whichever instance opened
+  // this popup. An explicit font family takes precedence over this toggle.
+  const applyPopupMonospaced = () => {
+    if (!currentInstanceId) {
+      console.warn("Popup monospaced ignored: no instance is targeted.");
+      return;
+    }
+    invoke("plugin:multiline-menubar|set_monospaced", {
+      payload: {
+        id: currentInstanceId,
+        top: topMonoEl.checked,
+        bottom: bottomMonoEl.checked,
+      },
+    }).catch((err) => console.error("Failed to set monospaced:", err));
+  };
+
+  document
+    .querySelector("#popup-monospaced")
+    .addEventListener("click", applyPopupMonospaced);
+
+  document
+    .querySelector("#popup-monospaced-reset")
+    .addEventListener("click", () => {
+      topMonoEl.checked = false;
+      bottomMonoEl.checked = false;
+      applyPopupMonospaced();
     });
 
   // Live-update the font size readouts as the sliders move.

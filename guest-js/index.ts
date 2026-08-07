@@ -148,6 +148,24 @@ export interface SetFontFamilyOptions {
   bottom: string | null
 }
 
+/**
+ * Per-line monospaced-digit toggle for the two menubar lines.
+ *
+ * When a line has no explicit font family, `true` switches that line to the
+ * system monospaced-digit font (`monospacedDigitSystemFont`), which keeps
+ * every digit the same width so frequently-updating numeric text (e.g. a
+ * network speed readout) does not jitter as values change. `false` uses the
+ * regular system font. An explicit font family takes precedence over this
+ * toggle.
+ */
+export interface SetMonospacedOptions {
+  id: string
+  /** Render the top line with monospaced digits (`true`) or the system font (`false`). */
+  top: boolean
+  /** Render the bottom line with monospaced digits (`true`) or the system font (`false`). */
+  bottom: boolean
+}
+
 export interface ClickEvent {
   id: string
   position: { x: number; y: number }
@@ -335,6 +353,22 @@ export async function setBold(options: SetBoldOptions): Promise<void> {
  */
 export async function setFontFamily(options: SetFontFamilyOptions): Promise<void> {
   return await invoke('plugin:multiline-menubar|set_font_family', {
+    payload: options,
+  })
+}
+
+/**
+ * Toggle monospaced digits for the top and/or bottom line of an instance,
+ * independently of the layout and font family.
+ *
+ * Each line is controlled separately: `top`/`bottom` set to `true` renders
+ * that line with the system monospaced-digit font (constant digit width — a
+ * numeric readout like a speed display doesn't jitter), `false` restores the
+ * regular system font. An explicit font family set via {@link setFontFamily}
+ * takes precedence over this toggle.
+ */
+export async function setMonospaced(options: SetMonospacedOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|set_monospaced', {
     payload: options,
   })
 }
