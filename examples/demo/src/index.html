@@ -38,11 +38,11 @@
         <form id="menubar-form">
           <div class="field">
             <label for="top-input">Top label</label>
-            <input id="top-input" value="Sensor" />
+            <input id="top-input" value="人工智能" />
           </div>
           <div class="field">
             <label for="bottom-input">Bottom value</label>
-            <input id="bottom-input" value="16W" />
+            <input id="bottom-input" value="+4569" />
           </div>
           <div class="field">
             <label>Layout</label>
@@ -204,6 +204,39 @@
       </section>
 
       <section class="card">
+        <h2>Alignment</h2>
+        <p>
+          Set the horizontal alignment of each line independently. Left is the
+          default; center and right align the text within the item. Alignment is
+          orthogonal to layout, size, color, bold, family and monospaced — mix
+          them freely.
+        </p>
+        <form id="alignment-form">
+          <div class="field">
+            <label for="top-align">Top line</label>
+            <select id="top-align">
+              <option value="0" selected>Left</option>
+              <option value="1">Center</option>
+              <option value="2">Right</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="bottom-align">Bottom line</label>
+            <select id="bottom-align">
+              <option value="0" selected>Left</option>
+              <option value="1">Center</option>
+              <option value="2">Right</option>
+            </select>
+          </div>
+          <div class="row">
+            <button type="submit">Apply alignment</button>
+            <button type="button" id="reset-alignment">Reset to left</button>
+            <span id="alignment-log" class="muted"></span>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
         <h2>Speed simulation</h2>
         <p>
           Push a random up/down speed to the menu bar once per second (up on
@@ -214,6 +247,21 @@
         <div class="row">
           <button type="button" id="speed-toggle">Start simulating</button>
           <span id="speed-log" class="muted">Not running</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Instance stress test</h2>
+        <p>
+          Click "Add instance" to create a brand-new menubar instance on every
+          click. There is no code-level cap on instance count, so this lets you
+          feel the real macOS menu-bar width limit — once the bar fills up, the
+          system silently pushes older items off-screen.
+        </p>
+        <div class="row">
+          <button type="button" id="add-instance-btn">Add instance</button>
+          <button type="button" id="remove-all-btn">Remove all</button>
+          <span id="instance-count" class="muted">0 instances</span>
         </div>
       </section>
 

@@ -132,11 +132,11 @@
 
       <div class="field">
         <label for="popup-top">Top label</label>
-        <input type="text" id="popup-top" value="Sensor" />
+        <input type="text" id="popup-top" value="人工智能" />
       </div>
       <div class="field">
         <label for="popup-bottom">Bottom value</label>
-        <input type="text" id="popup-bottom" value="16W" />
+        <input type="text" id="popup-bottom" value="+4569" />
       </div>
 
       <fieldset class="colors">
@@ -262,6 +262,30 @@
         <div class="row">
           <button id="popup-monospaced">Apply</button>
           <button id="popup-monospaced-reset" class="secondary">Reset</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Alignment</legend>
+        <div class="field">
+          <label for="popup-top-align">Top line</label>
+          <select id="popup-top-align">
+            <option value="0" selected>Left</option>
+            <option value="1">Center</option>
+            <option value="2">Right</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="popup-bottom-align">Bottom line</label>
+          <select id="popup-bottom-align">
+            <option value="0" selected>Left</option>
+            <option value="1">Center</option>
+            <option value="2">Right</option>
+          </select>
+        </div>
+        <div class="row">
+          <button id="popup-alignment">Apply</button>
+          <button id="popup-alignment-reset" class="secondary">Reset</button>
         </div>
       </fieldset>
 

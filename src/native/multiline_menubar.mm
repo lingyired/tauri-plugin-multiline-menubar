@@ -44,6 +44,17 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
   return MAX(lo, MIN(hi, value));
 }
 
+/// Map a stored alignment int onto `NSTextAlignment`: 0 = left, 1 = center,
+/// 2 = right; anything else is treated as left (the historical default, so
+/// instances that never call `set_alignment` keep rendering left-aligned).
+static inline NSTextAlignment align_for_value(NSInteger value) {
+  switch (value) {
+    case 1: return NSTextAlignmentCenter;
+    case 2: return NSTextAlignmentRight;
+    default: return NSTextAlignmentLeft;
+  }
+}
+
 // Custom NSView that renders two lines of text in the macOS menu bar.
 // See `MenubarLayoutMode` for the three vertical layouts.
 @interface MultilineMenubarView : NSView
@@ -71,6 +82,11 @@ static inline CGFloat clamp_size(CGFloat value, CGFloat lo, CGFloat hi) {
 // speed readout) does not jitter as values change. An explicit family wins.
 @property (assign, nonatomic) BOOL topMonospaced;
 @property (assign, nonatomic) BOOL bottomMonospaced;
+// Per-line horizontal alignment. Stored as an int so the C API can set it
+// directly: 0 = left (default), 1 = center, 2 = right. Mapped onto
+// `NSTextAlignment` when painting (see `align_for_value`).
+@property (assign, nonatomic) NSInteger topAlign;
+@property (assign, nonatomic) NSInteger bottomAlign;
 // Cached fonts for the two lines. Creating an NSFont round-trips the font
 // server, so under per-second text refreshes rebuilding them every frame is
 // wasteful; they are rebuilt lazily only when size, weight, family or the
@@ -244,29 +260,39 @@ static NSInteger nsfontmanager_weight(NSFontWeight weight) {
   }
 
   if (self.topText.length > 0) {
-    [self drawLine:self.topText font:topFont rect:topRect color:self.topColor];
+    [self drawLine:self.topText
+              font:topFont
+              rect:topRect
+             color:self.topColor
+             align:align_for_value(self.topAlign)];
   }
   if (self.bottomText.length > 0) {
     [self drawLine:self.bottomText
               font:bottomFont
               rect:bottomRect
-             color:self.bottomColor];
+             color:self.bottomColor
+             align:align_for_value(self.bottomAlign)];
   }
 }
 
 /// Draw a single line of text, painted with the given solid `NSColor`. When
 /// `color` is nil the system `textColor` is used, which follows light/dark
-/// mode automatically.
+/// mode automatically. `align` sets the horizontal alignment within `rect`.
 - (void)drawLine:(NSString *)text
             font:(NSFont *)font
             rect:(NSRect)rect
-           color:(NSColor *)color {
+           color:(NSColor *)color
+           align:(NSTextAlignment)align {
   if (text.length == 0) return;
 
   NSColor *fg = color ? color : [NSColor textColor];
+  NSMutableParagraphStyle *para =
+      [[NSMutableParagraphStyle defaultParagraphStyle] mutableCopy];
+  para.alignment = align;
   NSDictionary *attrs = @{
     NSFontAttributeName : font,
     NSForegroundColorAttributeName : fg,
+    NSParagraphStyleAttributeName : para,
   };
   [text drawWithRect:rect
               options:NSStringDrawingUsesLineFragmentOrigin
@@ -807,6 +833,25 @@ void multiline_menubar_set_monospaced(const char *id, int top_monospaced,
     // The monospaced-digit face has different metrics than the regular one,
     // so repaint *and* re-measure (a wider/narrower line grows or shrinks the
     // status item instead of clipping).
+    redraw_instance(inst);
+  });
+}
+
+/// Set the per-line horizontal alignment for the top and bottom lines.
+///
+/// Each argument is `0` = left (default), `1` = center, `2` = right; any
+/// other value is treated as left, so instances that never call this keep
+/// rendering left-aligned. Alignment does not change the measured text width,
+/// so a plain repaint is enough — but `redraw_instance` also re-measures (a
+/// no-op for geometry) and, crucially, forces the status-bar host to
+/// re-lay-out, which is what actually makes the new alignment paint.
+void multiline_menubar_set_alignment(const char *id, int top_align,
+                                     int bottom_align) {
+  NSString *key = key_from_id(id);
+  dispatch_async(dispatch_get_main_queue(), ^{
+    MenubarInstance *inst = ensure_instance(key);
+    inst.view.topAlign = top_align;
+    inst.view.bottomAlign = bottom_align;
     redraw_instance(inst);
   });
 }

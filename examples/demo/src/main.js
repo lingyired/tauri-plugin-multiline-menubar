@@ -38,6 +38,12 @@ async function updateMonospaced(topMonospaced, bottomMonospaced) {
   });
 }
 
+async function updateAlignment(topAlign, bottomAlign) {
+  await invoke("plugin:multiline-menubar|set_alignment", {
+    payload: { id: ID, top: topAlign, bottom: bottomAlign },
+  });
+}
+
 async function showMenubar() {
   await invoke("plugin:multiline-menubar|set_visible", {
     payload: { id: ID, visible: true },
@@ -119,6 +125,38 @@ async function toggleSecondInstance() {
     secondVisible = false;
     btn.textContent = "Add 2nd instance";
   }
+}
+
+// Stress test: create a fresh menubar instance on every click so the user can
+// experience the real macOS menu-bar width ceiling (no code-level cap exists).
+let stressCount = 0;
+const stressIds = [];
+
+async function addStressInstance() {
+  const id = `stress-${stressCount}`;
+  await invoke("plugin:multiline-menubar|create", {
+    payload: { id, top: `#${stressCount}`, bottom: `${stressCount}` },
+  });
+  // Narrow font keeps each instance small so more of them fit (and you can
+  // watch them get pushed off-screen sooner rather than later).
+  await invoke("plugin:multiline-menubar|set_font_sizes", {
+    payload: { id, top: 7, bottom: 7 },
+  });
+  stressIds.push(id);
+  stressCount += 1;
+  document.querySelector("#instance-count").textContent =
+    `${stressCount} instance${stressCount === 1 ? "" : "s"}`;
+}
+
+async function removeAllStress() {
+  for (const id of stressIds) {
+    await invoke("plugin:multiline-menubar|remove", { payload: { id } }).catch(
+      () => {}
+    );
+  }
+  stressIds.length = 0;
+  stressCount = 0;
+  document.querySelector("#instance-count").textContent = "0 instances";
 }
 
 // Handle a context-menu selection from any instance.
@@ -298,6 +336,12 @@ window.addEventListener("DOMContentLoaded", () => {
   document
     .querySelector("#toggle-second-btn")
     .addEventListener("click", toggleSecondInstance);
+  document
+    .querySelector("#add-instance-btn")
+    .addEventListener("click", addStressInstance);
+  document
+    .querySelector("#remove-all-btn")
+    .addEventListener("click", removeAllStress);
 
   // Color controls: one solid picker per line. There is no mode selector —
   // picking a color and applying sends a solid `ColorStyle`. The "Reset"
@@ -447,6 +491,42 @@ window.addEventListener("DOMContentLoaded", () => {
     topMonoEl.checked = false;
     bottomMonoEl.checked = false;
     applyMonospaced();
+  });
+
+  // Alignment controls: one select per line (left/center/right), mirroring the
+  // per-line styling cards above. Alignment does not change the item width.
+  const topAlignEl = document.querySelector("#top-align");
+  const bottomAlignEl = document.querySelector("#bottom-align");
+  const alignName = (v) => (v === "1" ? "center" : v === "2" ? "right" : "left");
+
+  const applyAlignment = () => {
+    const top = parseInt(topAlignEl.value, 10) || 0;
+    const bottom = parseInt(bottomAlignEl.value, 10) || 0;
+    updateAlignment(top, bottom)
+      .then(() => {
+        const parts = [];
+        if (top !== 0) parts.push(`top ${alignName(topAlignEl.value)}`);
+        if (bottom !== 0) parts.push(`bottom ${alignName(bottomAlignEl.value)}`);
+        document.querySelector("#alignment-log").textContent = parts.length
+          ? `Aligned: ${parts.join(" + ")}`
+          : "Left (default)";
+      })
+      .catch((err) => {
+        document.querySelector("#alignment-log").textContent = `Error: ${err}`;
+      });
+  };
+
+  document
+    .querySelector("#alignment-form")
+    .addEventListener("submit", (e) => {
+      e.preventDefault();
+      applyAlignment();
+    });
+
+  document.querySelector("#reset-alignment").addEventListener("click", () => {
+    topAlignEl.value = "0";
+    bottomAlignEl.value = "0";
+    applyAlignment();
   });
 
   // Speed simulation: push a random up/down speed once per second (up on the

@@ -27,6 +27,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const bottomFamilyEl = document.querySelector("#popup-bottom-family");
   const topMonoEl = document.querySelector("#popup-top-monospaced");
   const bottomMonoEl = document.querySelector("#popup-bottom-monospaced");
+  const topAlignEl = document.querySelector("#popup-top-align");
+  const bottomAlignEl = document.querySelector("#popup-bottom-align");
 
   // Role-based font sizes, mirrored from the native side. The two asymmetric
   // layouts are exact vertical mirrors of one another, so we keep the
@@ -83,6 +85,8 @@ window.addEventListener("DOMContentLoaded", () => {
       bottomFontFamily,
       topMonospaced,
       bottomMonospaced,
+      topAlign,
+      bottomAlign,
     } = event.payload;
     currentInstanceId = id;
     if (headerEl) headerEl.textContent = `Menu Bar Popup — ${id}`;
@@ -98,6 +102,10 @@ window.addEventListener("DOMContentLoaded", () => {
       topMonoEl.checked = !!topMonospaced;
     if (bottomMonospaced !== undefined && bottomMonospaced !== null)
       bottomMonoEl.checked = !!bottomMonospaced;
+    if (topAlign !== undefined && topAlign !== null)
+      topAlignEl.value = String(topAlign);
+    if (bottomAlign !== undefined && bottomAlign !== null)
+      bottomAlignEl.value = String(bottomAlign);
     if (layout !== undefined && layout !== null) {
       const l = layout;
       layoutBottomEl.checked = l === 0;
@@ -266,6 +274,35 @@ window.addEventListener("DOMContentLoaded", () => {
       topMonoEl.checked = false;
       bottomMonoEl.checked = false;
       applyPopupMonospaced();
+    });
+
+  // Apply the per-line horizontal alignment to whichever instance opened
+  // this popup. 0 = left, 1 = center, 2 = right. Alignment does not change
+  // the item width, so a plain repaint is enough.
+  const applyPopupAlignment = () => {
+    if (!currentInstanceId) {
+      console.warn("Popup alignment ignored: no instance is targeted.");
+      return;
+    }
+    invoke("plugin:multiline-menubar|set_alignment", {
+      payload: {
+        id: currentInstanceId,
+        top: parseInt(topAlignEl.value, 10) || 0,
+        bottom: parseInt(bottomAlignEl.value, 10) || 0,
+      },
+    }).catch((err) => console.error("Failed to set alignment:", err));
+  };
+
+  document
+    .querySelector("#popup-alignment")
+    .addEventListener("click", applyPopupAlignment);
+
+  document
+    .querySelector("#popup-alignment-reset")
+    .addEventListener("click", () => {
+      topAlignEl.value = "0";
+      bottomAlignEl.value = "0";
+      applyPopupAlignment();
     });
 
   // Live-update the font size readouts as the sliders move.

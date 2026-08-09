@@ -166,6 +166,33 @@ export interface SetMonospacedOptions {
   bottom: boolean
 }
 
+/**
+ * Per-line horizontal alignment for the two menubar lines.
+ *
+ * Each field is `0` (left, default), `1` (center) or `2` (right). Any other
+ * value is treated as left on the native side, so an instance that never
+ * calls {@link setAlignment} keeps rendering left-aligned (the historical
+ * behavior). Alignment is orthogonal to size, color, bold, family and
+ * monospaced — combine {@link setAlignment} with any of them freely.
+ */
+export interface SetAlignmentOptions {
+  id: string
+  /** Horizontal alignment of the top line: `0` left, `1` center, `2` right. */
+  top: number
+  /** Horizontal alignment of the bottom line: `0` left, `1` center, `2` right. */
+  bottom: number
+}
+
+/**
+ * Horizontal alignment values, for use with {@link setAlignment}.
+ * - `0` = left (default)
+ * - `1` = center
+ * - `2` = right
+ */
+export const ALIGN_LEFT = 0
+export const ALIGN_CENTER = 1
+export const ALIGN_RIGHT = 2
+
 export interface ClickEvent {
   id: string
   position: { x: number; y: number }
@@ -369,6 +396,22 @@ export async function setFontFamily(options: SetFontFamilyOptions): Promise<void
  */
 export async function setMonospaced(options: SetMonospacedOptions): Promise<void> {
   return await invoke('plugin:multiline-menubar|set_monospaced', {
+    payload: options,
+  })
+}
+
+/**
+ * Set the horizontal alignment of the top and/or bottom line of an instance,
+ * independently of the layout and every other per-line style.
+ *
+ * Each line is controlled separately via {@link SetAlignmentOptions}: `top`/
+ * `bottom` is `0` (left, default), `1` (center) or `2` (right). Alignment does
+ * not change the measured text width, so the item is simply repainted in the
+ * new alignment. The `ALIGN_LEFT` / `ALIGN_CENTER` / `ALIGN_RIGHT` constants
+ * document the integer values.
+ */
+export async function setAlignment(options: SetAlignmentOptions): Promise<void> {
+  return await invoke('plugin:multiline-menubar|set_alignment', {
     payload: options,
   })
 }

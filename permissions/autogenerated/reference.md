@@ -14,6 +14,7 @@ Default permissions for the multiline-menubar plugin (core rendering + read-only
 - `allow-set-bold`
 - `allow-set-font-family`
 - `allow-set-monospaced`
+- `allow-set-alignment`
 - `allow-rect`
 - `allow-is-visible`
 - `allow-set-auto-popup`
@@ -205,6 +206,32 @@ Enables the remove_menu command without any pre-configured scope.
 <td>
 
 Denies the remove_menu command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:allow-set-alignment`
+
+</td>
+<td>
+
+Enables the set_alignment command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`multiline-menubar:deny-set-alignment`
+
+</td>
+<td>
+
+Denies the set_alignment command without any pre-configured scope.
 
 </td>
 </tr>

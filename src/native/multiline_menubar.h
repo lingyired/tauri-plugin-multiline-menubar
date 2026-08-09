@@ -127,6 +127,16 @@ void multiline_menubar_set_monospaced(const char *id, int top_monospaced,
                                       int bottom_monospaced);
 
 /**
+ * Set the per-line horizontal alignment for the top and bottom lines.
+ *
+ * @param top_align     0 = left (default), 1 = center, 2 = right for the top
+ *                      line. Any other value is treated as left.
+ * @param bottom_align  Same, for the bottom line.
+ */
+void multiline_menubar_set_alignment(const char *id, int top_align,
+                                     int bottom_align);
+
+/**
  * Set the tooltip shown when hovering the menubar item. Pass NULL to clear.
  */
 void multiline_menubar_set_tooltip(const char *id, const char *tooltip);

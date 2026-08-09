@@ -52,6 +52,11 @@ extern "C" {
         top_monospaced: std::os::raw::c_int,
         bottom_monospaced: std::os::raw::c_int,
     );
+    fn multiline_menubar_set_alignment(
+        id: *const c_char,
+        top_align: std::os::raw::c_int,
+        bottom_align: std::os::raw::c_int,
+    );
     fn multiline_menubar_get_rect(
         id: *const c_char,
         x: *mut f64,
@@ -151,6 +156,8 @@ struct InstanceState {
     font_family: (Option<Arc<str>>, Option<Arc<str>>),
     /// Last top/bottom monospaced-digit toggle.
     monospaced: (bool, bool),
+    /// Last top/bottom horizontal alignment (0 = left, 1 = center, 2 = right).
+    alignment: (i32, i32),
     /// Last layout mode (0 = stacked, 1 = balanced).
     layout: i32,
 }
@@ -163,6 +170,7 @@ impl Default for InstanceState {
             weight: (false, false),
             font_family: (None, None),
             monospaced: (false, false),
+            alignment: (0, 0),
             layout: 0,
         }
     }
@@ -577,7 +585,9 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
                 "topFontFamily": state.font_family.0,
                 "bottomFontFamily": state.font_family.1,
                 "topMonospaced": state.monospaced.0,
-                "bottomMonospaced": state.monospaced.1
+                "bottomMonospaced": state.monospaced.1,
+                "topAlign": state.alignment.0,
+                "bottomAlign": state.alignment.1
             }),
         );
     }
@@ -1155,6 +1165,46 @@ impl<R: Runtime> MultilineMenubar<R> {
         #[cfg(not(target_os = "macos"))]
         {
             let _ = (id, top_monospaced, bottom_monospaced);
+            Err(crate::Error::UnsupportedPlatform)
+        }
+    }
+
+    /// Set the per-line horizontal alignment for the top and bottom lines.
+    /// `top_align` / `bottom_align` are `0` = left (default), `1` = center,
+    /// `2` = right; any other value is treated as left on the native side, so
+    /// instances that never call this keep rendering left-aligned.
+    pub fn set_alignment(
+        &self,
+        id: String,
+        top_align: i32,
+        bottom_align: i32,
+    ) -> crate::Result<()> {
+        #[cfg(target_os = "macos")]
+        {
+            // Remember the alignment so the popup can pre-fill this instance's
+            // value (mirrors the style bookkeeping for font sizes).
+            instances()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(id.clone())
+                .or_default()
+                .alignment = (top_align, bottom_align);
+
+            let c = CString::new(id).map_err(|_| {
+                crate::Error::InvalidArgument("id contains a NUL byte".into())
+            })?;
+            unsafe {
+                multiline_menubar_set_alignment(
+                    c.as_ptr(),
+                    top_align as std::os::raw::c_int,
+                    bottom_align as std::os::raw::c_int,
+                )
+            };
+            return Ok(());
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = (id, top_align, bottom_align);
             Err(crate::Error::UnsupportedPlatform)
         }
     }

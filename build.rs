@@ -12,6 +12,7 @@ const COMMANDS: &[&str] = &[
     "set_bold",
     "set_font_family",
     "set_monospaced",
+    "set_alignment",
     "rect",
     "is_visible",
     "set_popup_window",

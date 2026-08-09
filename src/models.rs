@@ -173,6 +173,20 @@ pub struct SetMonospacedRequest {
     pub bottom: bool,
 }
 
+/// Per-line horizontal alignment for the two menubar lines.
+///
+/// Each line is independent: `top`/`bottom` is `0` = left (default),
+/// `1` = center, `2` = right. Any other value is treated as left on the
+/// native side, so instances that never call `set_alignment` keep rendering
+/// left-aligned (the historical behavior).
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetAlignmentRequest {
+    pub id: String,
+    pub top: i32,
+    pub bottom: i32,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RectRequest {

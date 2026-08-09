@@ -113,6 +113,15 @@ pub(crate) async fn set_monospaced<R: Runtime>(
 }
 
 #[command]
+pub(crate) async fn set_alignment<R: Runtime>(
+    app: AppHandle<R>,
+    payload: SetAlignmentRequest,
+) -> crate::Result<()> {
+    app.multiline_menubar()
+        .set_alignment(payload.id, payload.top, payload.bottom)
+}
+
+#[command]
 pub(crate) async fn remove_menu<R: Runtime>(
     app: AppHandle<R>,
     payload: IdRequest,
