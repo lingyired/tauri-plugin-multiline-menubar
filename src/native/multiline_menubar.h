@@ -29,6 +29,20 @@ typedef void (*MultilineMenubarHoverCallback)(const char *id,
                                               const char *hover_type);
 
 /**
+ * Remove callback invoked when the user removes the status item from the menu
+ * bar — e.g. by holding ⌘ and dragging it out (macOS's built-in removal
+ * gesture, which requires `NSStatusItemBehaviorRemovalAllowed`).
+ *
+ * There is no delegate or notification for this; the plugin detects it by
+ * observing the item's `visible` property (macOS 13+) via KVO and reporting
+ * the flip to NO here. A *programmatic* hide (`multiline_menubar_hide`) or
+ * destroy (`multiline_menubar_destroy`) does NOT trigger this callback.
+ *
+ * @param id  The menubar instance id that was removed.
+ */
+typedef void (*MultilineMenubarRemoveCallback)(const char *id);
+
+/**
  * Create and show a multiline menubar instance with the given id.
  * Safe to call multiple times for different ids. Calling with an existing id
  * re-shows the instance.
@@ -178,6 +192,12 @@ void multiline_menubar_set_click_handler(MultilineMenubarClickCallback callback)
  * Register the hover callback. Pass NULL to clear.
  */
 void multiline_menubar_set_hover_handler(MultilineMenubarHoverCallback callback);
+
+/**
+ * Register the remove callback, fired when the user removes the status item
+ * from the menu bar (see MultilineMenubarRemoveCallback). Pass NULL to clear.
+ */
+void multiline_menubar_set_remove_handler(MultilineMenubarRemoveCallback callback);
 
 #ifdef __cplusplus
 }

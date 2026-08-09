@@ -385,13 +385,29 @@ static NSColor *parse_color_style(NSString *json) {
 // weak, so the instance must own the handler or ARC deallocates it right away
 // and the button silently stops responding.
 @property (nonatomic, strong) MenubarHandler *handler;
+// Set while the host (Rust) programmatically hides or destroys the item, so
+// the KVO removal observer does not mistake that for a user dragging the item
+// out of the menu bar.
+@property (nonatomic, assign) BOOL programmaticHide;
+// True once the *user* has removed the item (⌘-drag out). Guards the observer
+// against the known KVO double-fire and prevents re-detecting after a
+// programmatic re-show.
+@property (nonatomic, assign) BOOL removedByUser;
 - (void)updateWidth;
+- (void)startObservingRemoval;
+- (void)stopObservingRemoval;
 @end
 
 // Global registry of menubar instances, keyed by id.
 static NSMutableDictionary<NSString *, MenubarInstance *> *g_instances = nil;
 static MultilineMenubarClickCallback g_clickCallback = NULL;
 static MultilineMenubarHoverCallback g_hoverCallback = NULL;
+static MultilineMenubarRemoveCallback g_removeCallback = NULL;
+
+/// KVO context for the `visible` / `button.window` observation. A non-null
+/// pointer guarantees our `observeValueForKeyPath:` only reacts to *our*
+/// observation and never a superclass's.
+static void *kRemovalContext = &kRemovalContext;
 
 @implementation MenubarInstance
 
@@ -424,6 +440,93 @@ static MultilineMenubarHoverCallback g_hoverCallback = NULL;
   self.view.frame = frame;
 
   self.statusItem.length = width;
+}
+
+// Register the KVO observer that detects a user-initiated removal.
+//
+// On macOS 13+ the item exposes a `visible` property that the system flips to
+// NO when the user removes it (⌘-drag out); observing that is the documented
+// approach. On older systems `visible` does not exist, so we instead observe
+// the button's `window`: removal pulls the button out of its window, leaving
+// it nil — the same signal, just a different key.
+- (void)startObservingRemoval {
+  if (@available(macOS 13.0, *)) {
+    [self.statusItem addObserver:self
+                       forKeyPath:@"visible"
+                          options:NSKeyValueObservingOptionNew
+                          context:kRemovalContext];
+  } else {
+    [self.statusItem.button addObserver:self
+                              forKeyPath:@"window"
+                                 options:NSKeyValueObservingOptionNew
+                                 context:kRemovalContext];
+  }
+}
+
+- (void)stopObservingRemoval {
+  @try {
+    if (@available(macOS 13.0, *)) {
+      [self.statusItem removeObserver:self
+                            forKeyPath:@"visible"
+                               context:kRemovalContext];
+    } else if (self.statusItem.button) {
+      [self.statusItem.button removeObserver:self
+                                  forKeyPath:@"window"
+                                     context:kRemovalContext];
+    }
+  } @catch (NSException *exception) {
+    // Removing an observer that was never added throws; ignore it so a
+    // double-stopObservingRemoval (e.g. destroy + dealloc) cannot crash.
+  }
+}
+
+// KVO entry point. Only reacts to our own `visible` / `window` observation
+// (matched via `kRemovalContext`).
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary<NSKeyValueChangeKey, id> *)change
+                       context:(void *)context {
+  if (context != kRemovalContext) {
+    [super observeValueForKeyPath:keyPath
+                         ofObject:object
+                           change:change
+                          context:context];
+    return;
+  }
+
+  // Already handled (covers the known KVO double-fire on `visible`), or this is
+  // a programmatic hide/destroy that set `programmaticHide` around the call —
+  // in either case it is not a user removal, so stay quiet.
+  if (self.removedByUser || self.programmaticHide) {
+    return;
+  }
+
+  BOOL gone = NO;
+  if (@available(macOS 13.0, *)) {
+    if ([keyPath isEqualToString:@"visible"]) {
+      NSNumber *newValue = change[NSKeyValueChangeNewKey];
+      gone = (newValue != nil) && (newValue.boolValue == NO);
+    }
+  } else {
+    if ([keyPath isEqualToString:@"window"]) {
+      // The button was pulled out of its window (removed from the bar).
+      gone = (self.statusItem.button.window == nil);
+    }
+  }
+
+  if (gone) {
+    self.removedByUser = YES;
+    if (g_removeCallback) {
+      g_removeCallback([self.instanceId UTF8String]);
+    }
+    // Keep the instance in `g_instances` (a programmatic show can resurrect
+    // it via `visible = YES`); subsequent setters are harmless no-ops on the
+    // dead item until then.
+  }
+}
+
+- (void)dealloc {
+  [self stopObservingRemoval];
 }
 
 @end
@@ -554,6 +657,10 @@ static MenubarInstance *ensure_instance(NSString *key) {
 
   inst.statusItem = [[NSStatusBar systemStatusBar]
       statusItemWithLength:NSVariableStatusItemLength];
+  // Allow the user to remove the item via ⌘-drag out of the menu bar. Without
+  // this behavior the system gesture does nothing for third-party items, and
+  // there would be nothing to detect. (Available since macOS 10.12.)
+  inst.statusItem.behavior = NSStatusItemBehaviorRemovalAllowed;
   inst.statusItem.button.title = @"";
   inst.statusItem.button.image = nil;
 
@@ -582,6 +689,10 @@ static MenubarInstance *ensure_instance(NSString *key) {
              owner:handler
           userInfo:nil];
   [inst.statusItem.button addTrackingArea:tracking];
+
+  // Begin watching for a user-initiated removal (⌘-drag out). Must run after
+  // the status item exists so `visible`/`button.window` is observable.
+  [inst startObservingRemoval];
 
   g_instances[key] = inst;
   return inst;
@@ -617,12 +728,24 @@ static void run_on_main_sync(dispatch_block_t block) {
 /// the space, while keeping it in the array so its position is preserved when
 /// shown again. Fall back to `hidden` on older systems (where the gap remains
 /// — the only alternative pre-13 is removeStatusItem, which loses position).
+///
+/// Programmatic hides/destroys set `programmaticHide` around the call so the
+/// KVO removal observer does not mistake them for a user dragging the item out.
 static void set_instance_visible(MenubarInstance *inst, BOOL visible) {
   if (!inst || !inst.statusItem) return;
+  if (visible) {
+    // A re-show clears the user-removal flag so a later ⌘-drag can re-fire.
+    inst.removedByUser = NO;
+  } else {
+    inst.programmaticHide = YES;
+  }
   if (@available(macOS 13.0, *)) {
     inst.statusItem.visible = visible;
   } else {
     inst.statusItem.button.hidden = !visible;
+  }
+  if (!visible) {
+    inst.programmaticHide = NO;
   }
 }
 
@@ -648,7 +771,18 @@ void multiline_menubar_destroy(const char *id) {
   dispatch_async(dispatch_get_main_queue(), ^{
     MenubarInstance *inst = g_instances[key];
     if (inst) {
-      [[NSStatusBar systemStatusBar] removeStatusItem:inst.statusItem];
+      // Stop observing first; the removal below (or a prior user removal) would
+      // otherwise trip the KVO observer. `programmaticHide` additionally
+      // guards the case where the item is still in the bar and `removeStatusItem`
+      // flips `visible`/tears down the window.
+      [inst stopObservingRemoval];
+      inst.programmaticHide = YES;
+      // If the user already dragged it out, the system has removed it and
+      // calling removeStatusItem again is redundant, so skip it.
+      if (!inst.removedByUser) {
+        [[NSStatusBar systemStatusBar] removeStatusItem:inst.statusItem];
+      }
+      inst.programmaticHide = NO;
       [g_instances removeObjectForKey:key];
     }
   });
@@ -914,4 +1048,8 @@ void multiline_menubar_set_click_handler(MultilineMenubarClickCallback callback)
 
 void multiline_menubar_set_hover_handler(MultilineMenubarHoverCallback callback) {
   g_hoverCallback = callback;
+}
+
+void multiline_menubar_set_remove_handler(MultilineMenubarRemoveCallback callback) {
+  g_removeCallback = callback;
 }

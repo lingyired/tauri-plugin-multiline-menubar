@@ -119,6 +119,7 @@ All functions are `async` and return a `Promise`.
 | `setMenu` | `(options: SetMenuOptions) => Promise<void>` | Attach a context menu built from `MenuItemDescriptor`s. Pass `items: null` (or omit it) to **detach** the menu — mirrors Tauri's `setMenu(null)`. |
 | `removeMenu` | `(options: IdOptions) => Promise<void>` | Detach the context menu. (Kept as an explicit helper alongside `setMenu(null)`.) |
 | `onMenuSelection` | `(id: string, handler: (e: MenuSelectionEvent) => void) => Promise<UnlistenFn>` | Subscribe to context-menu selections for one instance. |
+| `onRemove` | `(id: string, handler: (e: RemoveEvent) => void) => Promise<UnlistenFn>` | Subscribe to the user removing the item (⌘-drag out of the menu bar). Only fires for a *user* removal, not a programmatic hide/destroy. |
 
 > Note: menu selections are re-emitted on `multiline-menubar://{id}//menu`,
 > **not** Tauri's `@tauri-apps/api/menu` `onMenuEvent`, because the menu is
@@ -142,7 +143,7 @@ A left click opens a Tauri WebView window anchored below the item.
 ```ts
 import {
   EVENT_READY, EVENT_CLICK, EVENT_ENTER, EVENT_LEAVE,
-  EVENT_POPUP_OPEN, EVENT_POPUP_CLOSE, EVENT_MENU,
+  EVENT_POPUP_OPEN, EVENT_POPUP_CLOSE, EVENT_MENU, EVENT_REMOVE,
   eventName,
 } from "tauri-plugin-multiline-menubar";
 ```
@@ -156,6 +157,7 @@ import {
 | `EVENT_POPUP_OPEN` | `multiline-menubar://{id}//popup-open` | `{ id, window }` |
 | `EVENT_POPUP_CLOSE` | `multiline-menubar://{id}//popup-close` | `{ id, window }` |
 | `EVENT_MENU` | `multiline-menubar://{id}//menu` | `MenuSelectionEvent` |
+| `EVENT_REMOVE` | `multiline-menubar://{id}//remove` | `RemoveEvent` |
 
 `eventName(id, name)` builds a fully-qualified event name. Use `listen(name, handler)`
 from `@tauri-apps/api/event` to subscribe.
@@ -187,6 +189,7 @@ interface HoverEvent  { id: string; rect: Rect }
 interface PopupEvent  { id: string; window: string }
 interface ReadyEvent  { id: string }
 interface MenuSelectionEvent { id: string; itemId: string; checked?: boolean }
+interface RemoveEvent { id: string }
 ```
 
 ### `ColorStyle`

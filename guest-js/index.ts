@@ -215,6 +215,11 @@ export interface ReadyEvent {
   id: string
 }
 
+/** Emitted when the user removes the status item (⌘-drag out of the menu bar). */
+export interface RemoveEvent {
+  id: string
+}
+
 /** Emitted when an item in an instance's context menu is selected. */
 export interface MenuSelectionEvent {
   /** The menubar instance the menu belongs to. */
@@ -244,6 +249,7 @@ export const EVENT_LEAVE = (id: string) => eventName(id, 'leave')
 export const EVENT_POPUP_OPEN = (id: string) => eventName(id, 'popup-open')
 export const EVENT_POPUP_CLOSE = (id: string) => eventName(id, 'popup-close')
 export const EVENT_MENU = (id: string) => eventName(id, 'menu')
+export const EVENT_REMOVE = (id: string) => eventName(id, 'remove')
 
 // ---------------------------------------------------------------------------
 // Commands
@@ -331,6 +337,25 @@ export async function onMenuSelection(
   return await listen<MenuSelectionEvent>(EVENT_MENU(id), (e) =>
     handler(e.payload)
   )
+}
+
+/**
+ * Subscribe to the user removing the status item (⌘-drag out of the menu bar).
+ *
+ * Returns the usual Tauri unlisten function. After this fires the item is gone
+ * until the host calls {@link setVisible} / {@link create} again.
+ *
+ * ```ts
+ * await onRemove('main', (e) => {
+ *   console.log(`${e.id} was dragged out of the menu bar`)
+ * })
+ * ```
+ */
+export async function onRemove(
+  id: string,
+  handler: (event: RemoveEvent) => void
+): Promise<UnlistenFn> {
+  return await listen<RemoveEvent>(EVENT_REMOVE(id), (e) => handler(e.payload))
 }
 
 /** Detach the context menu from an instance. */

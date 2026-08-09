@@ -73,6 +73,9 @@ extern "C" {
     fn multiline_menubar_set_hover_handler(
         callback: Option<extern "C" fn(*const c_char, *const c_char)>,
     );
+    fn multiline_menubar_set_remove_handler(
+        callback: Option<extern "C" fn(*const c_char)>,
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -240,6 +243,20 @@ extern "C" fn on_native_hover(id: *const c_char, hover_type: *const c_char) {
                 "id": id_str,
                 "rect": { "x": rect.0, "y": rect.1, "width": rect.2, "height": rect.3 },
             }),
+        );
+    }
+}
+
+/// Fired when the user removes the status item (⌘-drag out of the menu bar).
+/// Emits `multiline-menubar://{id}//remove` so the frontend can react.
+#[cfg(target_os = "macos")]
+extern "C" fn on_native_remove(id: *const c_char) {
+    let id_str = cstr_to_str(id, "");
+
+    if let Some(app) = APP_HANDLE.get() {
+        let _ = app.emit(
+            format!("multiline-menubar://{}//remove", id_str).as_str(),
+            serde_json::json!({ "id": id_str }),
         );
     }
 }
@@ -692,6 +709,7 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
         unsafe {
             multiline_menubar_set_click_handler(Some(on_native_click));
             multiline_menubar_set_hover_handler(Some(on_native_hover));
+            multiline_menubar_set_remove_handler(Some(on_native_remove));
         }
 
         // Menus built here are plain muda menus, so their selections reach

@@ -613,4 +613,14 @@ window.addEventListener("DOMContentLoaded", () => {
   listen(`multiline-menubar://${ID}//leave`, () => {
     document.querySelector("#hover-log").textContent = "Left the menu bar item";
   }).catch((err) => console.error("Failed to listen for leave:", err));
+
+  // Removal event: the user ⌘-dragged the item out of the menu bar. The item
+  // is now gone until the host calls set_visible(id, true) / create() again.
+  listen(`multiline-menubar://${ID}//remove`, (event) => {
+    const removeLog = document.querySelector("#remove-log");
+    removeLog.textContent = `Removed from menu bar: ${event.payload.id} (⌘-drag out)`;
+    removeLog.classList.remove("muted");
+    const statusEl = document.querySelector("#menubar-status");
+    if (statusEl) statusEl.textContent = "Menu bar item was removed by the user";
+  }).catch((err) => console.error("Failed to listen for remove:", err));
 });
