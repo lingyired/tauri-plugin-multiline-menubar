@@ -183,3 +183,126 @@ input[type="color"] {
     color: #aaa;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Instance list (Stats-style multi-instance panel)
+ * ------------------------------------------------------------------------- */
+
+.instance-list {
+  list-style: none;
+  margin: 16px 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.instance-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(128, 128, 128, 0.07);
+  border: 1px solid rgba(128, 128, 128, 0.12);
+}
+
+.instance-name {
+  font-weight: 600;
+  min-width: 52px;
+  font-variant-numeric: tabular-nums;
+}
+
+.instance-text {
+  flex: 1;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Toggle switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.switch .slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  background: rgba(128, 128, 128, 0.35);
+  transition: background 0.15s ease;
+}
+
+.switch .slider::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease;
+}
+
+.switch input:checked + .slider {
+  background: #0a84ff;
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(16px);
+}
+
+/* ---------------------------------------------------------------------------
+ * Drag-out warning banner (top of the window)
+ * ------------------------------------------------------------------------- */
+
+.remove-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.4);
+  color: #dc2626;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.remove-banner[hidden] {
+  display: none;
+}
+
+.remove-banner strong {
+  color: #dc2626;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  .remove-banner {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.35);
+    color: #f87171;
+  }
+  .remove-banner strong {
+    color: #ef4444;
+  }
+}

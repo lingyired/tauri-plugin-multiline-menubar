@@ -29,6 +29,19 @@ window.addEventListener("DOMContentLoaded", () => {
   const bottomMonoEl = document.querySelector("#popup-bottom-monospaced");
   const topAlignEl = document.querySelector("#popup-top-align");
   const bottomAlignEl = document.querySelector("#popup-bottom-align");
+  const topColorEl = document.querySelector("#popup-top-color");
+  const topHexEl = document.querySelector("#popup-top-hex");
+  const bottomColorEl = document.querySelector("#popup-bottom-color");
+  const bottomHexEl = document.querySelector("#popup-bottom-hex");
+
+  // Picking a color in the native picker auto-fills the hex field (which the
+  // user may still edit by hand); the hex field is what gets applied.
+  topColorEl.addEventListener("input", () => {
+    topHexEl.value = topColorEl.value;
+  });
+  bottomColorEl.addEventListener("input", () => {
+    bottomHexEl.value = bottomColorEl.value;
+  });
 
   // Role-based font sizes, mirrored from the native side. The two asymmetric
   // layouts are exact vertical mirrors of one another, so we keep the
@@ -87,9 +100,11 @@ window.addEventListener("DOMContentLoaded", () => {
       bottomMonospaced,
       topAlign,
       bottomAlign,
+      topColor,
+      bottomColor,
     } = event.payload;
     currentInstanceId = id;
-    if (headerEl) headerEl.textContent = `Menu Bar Popup — ${id}`;
+    if (headerEl) headerEl.textContent = `Instance settings — ${id}`;
     if (top !== undefined && top !== null) topEl.value = top;
     if (bottom !== undefined && bottom !== null) bottomEl.value = bottom;
     if (topBold !== undefined && topBold !== null) topBoldEl.checked = !!topBold;
@@ -104,8 +119,18 @@ window.addEventListener("DOMContentLoaded", () => {
       bottomMonoEl.checked = !!bottomMonospaced;
     if (topAlign !== undefined && topAlign !== null)
       topAlignEl.value = String(topAlign);
+    // Show the instance's current solid colors (hex or the picker default when
+    // the line uses the system color).
+    if (topColor !== undefined && topColor !== null && /^#[0-9a-fA-F]{6}$/.test(topColor)) {
+      topColorEl.value = topColor;
+      topHexEl.value = topColor;
+    }
     if (bottomAlign !== undefined && bottomAlign !== null)
       bottomAlignEl.value = String(bottomAlign);
+    if (bottomColor !== undefined && bottomColor !== null && /^#[0-9a-fA-F]{6}$/.test(bottomColor)) {
+      bottomColorEl.value = bottomColor;
+      bottomHexEl.value = bottomColor;
+    }
     if (layout !== undefined && layout !== null) {
       const l = layout;
       layoutBottomEl.checked = l === 0;
@@ -132,7 +157,7 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }).catch((err) => console.error("Failed to listen for popup open:", err));
 
-  document.querySelector("#popup-update").addEventListener("click", () => {
+  document.querySelector("#popup-text-update").addEventListener("click", () => {
     if (!currentInstanceId) {
       console.warn("Popup update ignored: no instance is targeted.");
       return;
@@ -144,6 +169,24 @@ window.addEventListener("DOMContentLoaded", () => {
         bottom: bottomEl.value,
       },
     }).catch((err) => console.error("Failed to update menubar:", err));
+  });
+
+  // Reset the text to the instance's own id (mb-N on both lines) — the demo
+  // default that makes instances easy to identify.
+  document.querySelector("#popup-text-reset").addEventListener("click", () => {
+    if (!currentInstanceId) {
+      console.warn("Popup text reset ignored: no instance is targeted.");
+      return;
+    }
+    topEl.value = currentInstanceId;
+    bottomEl.value = currentInstanceId;
+    invoke("plugin:multiline-menubar|set_text", {
+      payload: {
+        id: currentInstanceId,
+        top: currentInstanceId,
+        bottom: currentInstanceId,
+      },
+    }).catch((err) => console.error("Failed to reset text:", err));
   });
 
   // Resolve the effective color for a line: prefer the hex text field (works
@@ -379,6 +422,24 @@ window.addEventListener("DOMContentLoaded", () => {
         bottom,
       },
     }).catch((err) => console.error("Failed to set font sizes:", err));
+  });
+
+  // Restore the default role sizes (small 7 / large 12 / equal 9), sync the
+  // sliders and re-apply.
+  document.querySelector("#popup-sizes-reset").addEventListener("click", () => {
+    if (!currentInstanceId) {
+      console.warn("Popup sizes reset ignored: no instance is targeted.");
+      return;
+    }
+    curSmall = 7;
+    curLarge = 12;
+    curEqual = 9;
+    const l = currentLayoutValue();
+    seedSizeSliders(l);
+    const [top, bottom] = displayedForLayout(l);
+    invoke("plugin:multiline-menubar|set_font_sizes", {
+      payload: { id: currentInstanceId, top, bottom },
+    }).catch((err) => console.error("Failed to reset font sizes:", err));
   });
 
   document.querySelector("#popup-close").addEventListener("click", () => {

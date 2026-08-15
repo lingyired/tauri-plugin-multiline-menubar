@@ -1,626 +1,224 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
-const ID = "main";
-const SECOND_ID = "second";
-let secondVisible = false;
-let secondMenuUnlisten = null;
+// ---------------------------------------------------------------------------
+// 5 fixed menubar instances (mb-1 … mb-5), Stats-style. Each item just shows
+// its own id on both lines, so we can talk about "mb-3" without ambiguity.
+// Click an item in the menu bar to open its settings popup (text, fonts,
+// sizes, bold, colors, alignment, layout — all editable per instance there).
+//
+// The shown/hidden state of each instance is persisted to localStorage, so a
+// restart keeps the same arrangement.
+// ---------------------------------------------------------------------------
+const INSTANCES = ["mb-1", "mb-2", "mb-3", "mb-4", "mb-5"];
+const STORAGE_KEY = "multiline-menubar:shown-v1";
 
-let greetInputEl;
-let greetMsgEl;
+const created = new Set();
+let shown = loadShown(); // { id: boolean }
 
-async function greet() {
-  greetMsgEl.textContent = await invoke("greet", { name: greetInputEl.value });
-}
-
-async function updateMenubar(top, bottom) {
-  await invoke("plugin:multiline-menubar|set_text", {
-    payload: { id: ID, top, bottom },
-  });
-  await refreshMenubarStatus();
-}
-
-async function updateFontSizes(top, bottom) {
-  await invoke("plugin:multiline-menubar|set_font_sizes", {
-    payload: { id: ID, top, bottom },
-  });
-}
-
-async function updateBold(topBold, bottomBold) {
-  await invoke("plugin:multiline-menubar|set_bold", {
-    payload: { id: ID, top: topBold, bottom: bottomBold },
-  });
-}
-
-async function updateMonospaced(topMonospaced, bottomMonospaced) {
-  await invoke("plugin:multiline-menubar|set_monospaced", {
-    payload: { id: ID, top: topMonospaced, bottom: bottomMonospaced },
-  });
-}
-
-async function updateAlignment(topAlign, bottomAlign) {
-  await invoke("plugin:multiline-menubar|set_alignment", {
-    payload: { id: ID, top: topAlign, bottom: bottomAlign },
-  });
-}
-
-async function showMenubar() {
-  await invoke("plugin:multiline-menubar|set_visible", {
-    payload: { id: ID, visible: true },
-  });
-  await refreshMenubarStatus();
-}
-
-async function hideMenubar() {
-  await invoke("plugin:multiline-menubar|set_visible", {
-    payload: { id: ID, visible: false },
-  });
-  await refreshMenubarStatus();
-}
-
-async function refreshMenubarStatus() {
-  const result = await invoke("plugin:multiline-menubar|is_visible", {
-    payload: { id: ID },
-  });
-  const statusEl = document.querySelector("#menubar-status");
-  statusEl.textContent = result.visible
-    ? "Menu bar item is visible"
-    : "Menu bar item is hidden";
-}
-
-async function togglePopup() {
-  await invoke("plugin:multiline-menubar|toggle_popup", {
-    payload: { id: ID },
-  });
-}
-
-async function toggleSecondInstance() {
-  const btn = document.querySelector("#toggle-second-btn");
-  if (!secondVisible) {
-    await invoke("plugin:multiline-menubar|create", {
-      payload: { id: SECOND_ID, top: "Net", bottom: "5G" },
-    });
-    await invoke("plugin:multiline-menubar|set_font_sizes", {
-      payload: { id: SECOND_ID, top: 8, bottom: 14 },
-    });
-    await invoke("plugin:multiline-menubar|set_menu", {
-      payload: {
-        id: SECOND_ID,
-        items: [
-          { type: "item", id: "ping", text: "Ping" },
-          {
-            type: "submenu",
-            text: "Speed",
-            items: [
-              { type: "item", id: "speed-fast", text: "Fast" },
-              { type: "item", id: "speed-slow", text: "Slow" },
-            ],
-          },
-          { type: "separator" },
-          { type: "item", id: "quit2", text: "Quit" },
-        ],
-      },
-    });
-    // Showcase: the second instance uses solid colors on both lines.
-    await invoke("plugin:multiline-menubar|set_colors", {
-      payload: {
-        id: SECOND_ID,
-        top: { type: "solid", value: "#34d399" },
-        bottom: { type: "solid", value: "#60a5fa" },
-      },
-    });
-    if (!secondMenuUnlisten) {
-      secondMenuUnlisten = await listenMenu(SECOND_ID);
+function loadShown() {
+  const map = {};
+  for (const id of INSTANCES) map[id] = true;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const obj = JSON.parse(raw);
+      for (const id of INSTANCES) {
+        if (typeof obj[id] === "boolean") map[id] = obj[id];
+      }
     }
-    secondVisible = true;
-    btn.textContent = "Remove 2nd instance";
-  } else {
-    await invoke("plugin:multiline-menubar|remove", {
-      payload: { id: SECOND_ID },
-    });
-    if (secondMenuUnlisten) {
-      secondMenuUnlisten();
-      secondMenuUnlisten = null;
-    }
-    secondVisible = false;
-    btn.textContent = "Add 2nd instance";
-  }
+  } catch (_) {}
+  return map;
 }
 
-// Stress test: create a fresh menubar instance on every click so the user can
-// experience the real macOS menu-bar width ceiling (no code-level cap exists).
-let stressCount = 0;
-const stressIds = [];
+function saveShown() {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(shown));
+  } catch (_) {}
+}
 
-async function addStressInstance() {
-  const id = `stress-${stressCount}`;
+// ---------------------------------------------------------------------------
+// Instance lifecycle
+// ---------------------------------------------------------------------------
+
+async function createInstance(id) {
   await invoke("plugin:multiline-menubar|create", {
-    payload: { id, top: `#${stressCount}`, bottom: `${stressCount}` },
+    payload: { id, top: id, bottom: id },
   });
-  // Narrow font keeps each instance small so more of them fit (and you can
-  // watch them get pushed off-screen sooner rather than later).
-  await invoke("plugin:multiline-menubar|set_font_sizes", {
-    payload: { id, top: 7, bottom: 7 },
-  });
-  stressIds.push(id);
-  stressCount += 1;
-  document.querySelector("#instance-count").textContent =
-    `${stressCount} instance${stressCount === 1 ? "" : "s"}`;
-}
-
-async function removeAllStress() {
-  for (const id of stressIds) {
-    await invoke("plugin:multiline-menubar|remove", { payload: { id } }).catch(
-      () => {}
-    );
-  }
-  stressIds.length = 0;
-  stressCount = 0;
-  document.querySelector("#instance-count").textContent = "0 instances";
-}
-
-// Handle a context-menu selection from any instance.
-function handleMenuSelection(instanceId, itemId, checked) {
-  const menuLog = document.querySelector("#menu-log");
-  menuLog.textContent =
-    `Menu event: ${instanceId} -> ${itemId}` +
-    (checked === undefined ? "" : ` (checked=${checked})`);
-
-  if (itemId === "quit" || itemId === "quit2") {
-    // Quit is handled in Rust (the plugin's `on_menu_event` calls
-    // `AppHandle::exit`). `window.__TAURI__.app.exit` does not exist in the
-    // base `app` module, so a JS-side quit would silently fail.
-    return;
-  } else if (itemId === "auto-popup") {
-    // `checked` reflects the state after the toggle.
-    invoke("plugin:multiline-menubar|set_auto_popup", {
-      payload: { enabled: Boolean(checked) },
-    }).catch((err) => console.error("Failed to set auto popup:", err));
+  created.add(id);
+  await setupInstanceMenu(id);
+  // Honor the persisted state: hidden instances are removed right after
+  // creation (setVisible(false) removes the item, never touches visible=NO).
+  if (shown[id] === false) {
+    await invoke("plugin:multiline-menubar|set_visible", {
+      payload: { id, visible: false },
+    }).catch((err) => console.error(`set_visible failed for ${id}:`, err));
   }
 }
 
-// Subscribe to the per-instance menu channel. The plugin re-emits muda menu
-// selections here; `@tauri-apps/api/menu`'s onMenuEvent does NOT cover them,
-// since that channel only carries menus built by Tauri's own menu plugin.
-function listenMenu(instanceId) {
-  return listen(`multiline-menubar://${instanceId}//menu`, (event) => {
-    const { id, itemId, checked } = event.payload;
-    handleMenuSelection(id, itemId, checked);
-  }).catch((err) =>
-    console.error(`Failed to listen for ${instanceId} menu events:`, err)
-  );
-}
-
-// Build the right-click menu for the main instance as a real Tauri/muda menu.
-async function setupMainMenu() {
+// Right-click context menu for every instance: version line (disabled) + Quit.
+// "quit" is a built-in id — the plugin's Rust side exits the whole app, so no
+// JS handling is needed here.
+async function setupInstanceMenu(id) {
   let version = "0.0.0";
   try {
     version = await window.__TAURI__.app.getVersion();
   } catch (_) {}
-
   await invoke("plugin:multiline-menubar|set_menu", {
     payload: {
-      id: ID,
+      id,
       items: [
-        { type: "item", id: "version", text: `Version ${version}`, disabled: true },
-        { type: "separator" },
-        { type: "check", id: "auto-popup", text: "Popup on left click", checked: true },
+        { type: "item", id: "version", text: `MenubarLegacy160 v${version}`, disabled: true },
         { type: "separator" },
         { type: "item", id: "quit", text: "Quit", accelerator: "CmdOrCtrl+Q" },
       ],
     },
-  });
-
-  await listenMenu(ID);
+  }).catch((err) => console.error(`Failed to set menu for ${id}:`, err));
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-  greetInputEl = document.querySelector("#greet-input");
-  greetMsgEl = document.querySelector("#greet-msg");
-  document.querySelector("#greet-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    greet();
-  });
+async function setInstanceVisible(id, visible) {
+  shown[id] = visible;
+  saveShown();
+  if (created.has(id)) {
+    await invoke("plugin:multiline-menubar|set_visible", {
+      payload: { id, visible },
+    }).catch((err) => console.error(`set_visible failed for ${id}:`, err));
+  }
+  renderList();
+  updateStatus();
+}
 
-  const topInput = document.querySelector("#top-input");
-  const bottomInput = document.querySelector("#bottom-input");
-  const largeSizeInput = document.querySelector("#large-size-input");
-  const smallSizeInput = document.querySelector("#small-size-input");
-  const largeSizeValue = document.querySelector("#large-size-value");
-  const smallSizeValue = document.querySelector("#small-size-value");
-  const layoutBottomEl = document.querySelector("#layout-bottom");
-  const layoutTopEl = document.querySelector("#layout-top");
-  const layoutEqualEl = document.querySelector("#layout-equal");
-  const sizeAsymEl = document.querySelector("#size-asym");
-  const sizeEqualEl = document.querySelector("#size-equal");
-  const sizeInput = document.querySelector("#size-input");
-  const sizeValue = document.querySelector("#size-value");
+// Stats recovery key: drop every shown item, then rebuild each one. The
+// plugin's setVisible(true) rebuilds a fresh item whenever the item is
+// missing or was detached (hide removes it, a ⌘-drag detaches it), so a
+// single off→on pass is enough; if macOS still doesn't show them, click again.
+async function rebuildShown() {
+  const shownIds = INSTANCES.filter((id) => shown[id] !== false);
+  for (const id of shownIds) {
+    if (!created.has(id)) continue;
+    await invoke("plugin:multiline-menubar|set_visible", {
+      payload: { id, visible: false },
+    }).catch(() => {});
+  }
+  for (const id of shownIds) {
+    if (!created.has(id)) continue;
+    await invoke("plugin:multiline-menubar|set_visible", {
+      payload: { id, visible: true },
+    }).catch(() => {});
+  }
+  // A successful rebuild is the recovery action the banner asks for.
+  setRemoveBanner(false);
+  renderList();
+  updateStatus();
+}
 
-  // Role-based font sizes, mirrored from the native side. The two asymmetric
-  // layouts are vertical mirrors, so we track the emphasized (large) and
-  // de-emphasized (small) sizes separately; switching layouts just moves which
-  // line is large without losing a value.
-  let curSmall = 7;
-  let curLarge = 12;
-  let curEqual = 9;
+async function setAllVisible(visible) {
+  for (const id of INSTANCES) {
+    await setInstanceVisible(id, visible);
+  }
+  if (visible) {
+    // Show all is also a full recovery action.
+    setRemoveBanner(false);
+  }
+}
 
-  // Which layout radio is selected: 0 = emphasis-bottom (default),
-  // 1 = emphasis-top, 2 = equal.
-  const mainLayoutValue = () => {
-    if (layoutTopEl.checked) return 1;
-    if (layoutEqualEl.checked) return 2;
-    return 0;
-  };
+// ---------------------------------------------------------------------------
+// UI
+// ---------------------------------------------------------------------------
 
-  // Compute the *displayed* top/bottom sizes from the role-based values. The
-  // native `setFontSizes` API always takes displayed positions.
-  const displayedForLayout = (l) => {
-    if (l === 2) return [curEqual, curEqual];
-    if (l === 1) return [curLarge, curSmall]; // top large, bottom small
-    return [curSmall, curLarge]; // top small, bottom large (default)
-  };
+function renderList() {
+  const ul = document.querySelector("#instance-list");
+  if (!ul) return;
+  ul.innerHTML = "";
+  for (const id of INSTANCES) {
+    if (!created.has(id)) continue;
+    const li = document.createElement("li");
+    li.className = "instance-row";
 
-  // Sync the visible slider group + values to the role-based state.
-  const seedSizeSliders = (l) => {
-    if (l === 2) {
-      sizeInput.value = curEqual;
-      sizeValue.textContent = curEqual;
-    } else {
-      largeSizeInput.value = curLarge;
-      largeSizeValue.textContent = curLarge;
-      smallSizeInput.value = curSmall;
-      smallSizeValue.textContent = curSmall;
+    const name = document.createElement("span");
+    name.className = "instance-name";
+    name.textContent = id;
+
+    const text = document.createElement("span");
+    text.className = "instance-text muted";
+    text.textContent = `"${id}" / "${id}"`;
+
+    const switchLabel = document.createElement("label");
+    switchLabel.className = "switch";
+    switchLabel.title = "Show / hide this menu bar item";
+    const toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.checked = shown[id] !== false;
+    toggle.addEventListener("change", () =>
+      setInstanceVisible(id, toggle.checked)
+    );
+    const slider = document.createElement("span");
+    slider.className = "slider";
+    switchLabel.appendChild(toggle);
+    switchLabel.appendChild(slider);
+
+    li.appendChild(name);
+    li.appendChild(text);
+    li.appendChild(switchLabel);
+    ul.appendChild(li);
+  }
+}
+
+function updateStatus() {
+  const el = document.querySelector("#instance-status");
+  if (!el) return;
+  const shownCount = INSTANCES.filter((id) => shown[id] !== false).length;
+  el.textContent = `${created.size} instances · showing ${shownCount} / hidden ${INSTANCES.length - shownCount}`;
+}
+
+// ---------------------------------------------------------------------------
+// Events (light logging)
+// ---------------------------------------------------------------------------
+
+// Show / hide the top warning banner: a drag-out hides the WHOLE app's menu
+// bar (系统设置-菜单栏 unchecks the app), so the user must re-check it there
+// and then run "Rebuild shown". The banner stays until a recovery action runs.
+function setRemoveBanner(show) {
+  const el = document.querySelector("#remove-banner");
+  if (el) el.hidden = !show;
+}
+
+function listenInstanceEvents(id) {
+  listen(`multiline-menubar://${id}//click`, () => {
+    const el = document.querySelector("#click-log");
+    if (el) el.textContent = `Click: ${id} — settings popup opened`;
+  }).catch(() => {});
+  // The plugin polls for user drag-outs (⌘-drag) every ~2s and emits `remove`
+  // when the system detaches a shown item. Surface it so the user knows the
+  // item is gone and how to bring it back.
+  listen(`multiline-menubar://${id}//remove`, () => {
+    setRemoveBanner(true);
+    const el = document.querySelector("#click-log");
+    if (el) {
+      el.textContent =
+        `⚠️ ${id} 被拖出菜单栏 — 系统隐藏了整个 app 的菜单栏。` +
+        `请在 系统设置-菜单栏 重新勾选 MenubarLegacy160，再点 Rebuild shown 恢复`;
     }
-  };
+  }).catch(() => {});
+}
 
-  document.querySelector("#menubar-form").addEventListener("submit", (e) => {
-    e.preventDefault();
-    updateMenubar(topInput.value, bottomInput.value);
-  });
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
 
-  // Show the slider group that matches the current layout and seed the
-  // role-based sliders so they reflect the current sizes.
-  const applyLayoutVisibility = () => {
-    const l = mainLayoutValue();
-    sizeAsymEl.style.display = l === 2 ? "none" : "";
-    sizeEqualEl.style.display = l === 2 ? "" : "none";
-    seedSizeSliders(l);
-  };
+window.addEventListener("DOMContentLoaded", async () => {
+  document.querySelector("#rebuild-all-btn").addEventListener("click", rebuildShown);
+  document.querySelector("#show-all-btn").addEventListener("click", () => setAllVisible(true));
+  document.querySelector("#hide-all-btn").addEventListener("click", () => setAllVisible(false));
 
-  const syncFontSizes = () => {
-    const l = mainLayoutValue();
-    if (l === 2) {
-      curEqual = Number(sizeInput.value);
-      sizeValue.textContent = curEqual;
-      updateFontSizes(curEqual, curEqual);
-    } else {
-      curLarge = Number(largeSizeInput.value);
-      curSmall = Number(smallSizeInput.value);
-      largeSizeValue.textContent = curLarge;
-      smallSizeValue.textContent = curSmall;
-      const [top, bottom] = displayedForLayout(l);
-      updateFontSizes(top, bottom);
-    }
-  };
-
-  largeSizeInput.addEventListener("input", syncFontSizes);
-  smallSizeInput.addEventListener("input", syncFontSizes);
-  sizeInput.addEventListener("input", syncFontSizes);
-
-  // Layout toggle: persist the layout and re-push the role-based sizes so the
-  // native side stays in sync (it stores sizes per role, not per position).
-  const onLayoutChange = () => {
-    applyLayoutVisibility();
-    const l = mainLayoutValue();
-    // Switch the layout FIRST: the native side clamps font sizes with a
-    // different range per layout, so pushing sizes while still in the old
-    // layout would briefly render them clamped to the old ranges.
-    invoke("plugin:multiline-menubar|set_layout", {
-      payload: { id: ID, layout: l },
-    })
-      .then(() => {
-        const [top, bottom] = displayedForLayout(l);
-        return updateFontSizes(top, bottom);
-      })
-      .catch((err) => console.error("Failed to switch layout:", err));
-  };
-  layoutBottomEl.addEventListener("change", onLayoutChange);
-  layoutTopEl.addEventListener("change", onLayoutChange);
-  layoutEqualEl.addEventListener("change", onLayoutChange);
-
-  document.querySelector("#show-btn").addEventListener("click", showMenubar);
-  document.querySelector("#hide-btn").addEventListener("click", hideMenubar);
-  document
-    .querySelector("#toggle-popup-btn")
-    .addEventListener("click", togglePopup);
-  document
-    .querySelector("#toggle-second-btn")
-    .addEventListener("click", toggleSecondInstance);
-  document
-    .querySelector("#add-instance-btn")
-    .addEventListener("click", addStressInstance);
-  document
-    .querySelector("#remove-all-btn")
-    .addEventListener("click", removeAllStress);
-
-  // Color controls: one solid picker per line. There is no mode selector —
-  // picking a color and applying sends a solid `ColorStyle`. The "Reset"
-  // button sends `default`, which lets the OS draw the standard menu-bar
-  // text color (adapts to light/dark mode).
-  const buildStyle = (line) => {
-    const hex = document.querySelector(`#${line}-color`).value;
-    return { type: "solid", value: hex };
-  };
-
-  document
-    .querySelector("#colors-form")
-    .addEventListener("submit", (e) => {
-      e.preventDefault();
-      invoke("plugin:multiline-menubar|set_colors", {
-        payload: {
-          id: ID,
-          top: buildStyle("top"),
-          bottom: buildStyle("bottom"),
-        },
-      })
-        .then(() => {
-          document.querySelector("#color-log").textContent = "Colors applied";
-        })
-        .catch((err) => {
-          document.querySelector("#color-log").textContent = `Error: ${err}`;
-        });
-    });
-
-  document.querySelector("#reset-colors").addEventListener("click", () => {
-    invoke("plugin:multiline-menubar|set_colors", {
-      payload: {
-        id: ID,
-        top: { type: "default" },
-        bottom: { type: "default" },
-      },
-    })
-      .then(() => {
-        document.querySelector("#color-log").textContent =
-          "Reverted to system color";
-      })
-      .catch((err) => {
-        document.querySelector("#color-log").textContent = `Error: ${err}`;
-      });
-  });
-
-  // Bold controls: one checkbox per line, independent of layout.
-  const topBoldEl = document.querySelector("#top-bold");
-  const bottomBoldEl = document.querySelector("#bottom-bold");
-
-  const applyBold = () => {
-    const top = topBoldEl.checked;
-    const bottom = bottomBoldEl.checked;
-    updateBold(top, bottom)
-      .then(() => {
-        const parts = [];
-        if (top) parts.push("top");
-        if (bottom) parts.push("bottom");
-        document.querySelector("#bold-log").textContent = parts.length
-          ? `Bold: ${parts.join(" + ")}`
-          : "Bold cleared (layout weights)";
-      })
-      .catch((err) => {
-        document.querySelector("#bold-log").textContent = `Error: ${err}`;
-      });
-  };
-
-  document
-    .querySelector("#bold-form")
-    .addEventListener("submit", (e) => {
-      e.preventDefault();
-      applyBold();
-    });
-
-  document.querySelector("#reset-bold").addEventListener("click", () => {
-    topBoldEl.checked = false;
-    bottomBoldEl.checked = false;
-    applyBold();
-  });
-
-  // Font-family controls: one text field per line; empty = system font.
-  const topFamilyEl = document.querySelector("#top-font-family");
-  const bottomFamilyEl = document.querySelector("#bottom-font-family");
-
-  const applyFontFamily = () => {
-    const top = topFamilyEl.value.trim() || null;
-    const bottom = bottomFamilyEl.value.trim() || null;
-    invoke("plugin:multiline-menubar|set_font_family", {
-      payload: { id: ID, top, bottom },
-    })
-      .then(() => {
-        const parts = [];
-        if (top) parts.push(`top: ${top}`);
-        if (bottom) parts.push(`bottom: ${bottom}`);
-        document.querySelector("#font-family-log").textContent = parts.length
-          ? `Families: ${parts.join(", ")}`
-          : "System font restored";
-      })
-      .catch((err) => {
-        document.querySelector("#font-family-log").textContent = `Error: ${err}`;
-      });
-  };
-
-  document
-    .querySelector("#font-family-form")
-    .addEventListener("submit", (e) => {
-      e.preventDefault();
-      applyFontFamily();
-    });
-
-  document.querySelector("#reset-font-family").addEventListener("click", () => {
-    topFamilyEl.value = "";
-    bottomFamilyEl.value = "";
-    applyFontFamily();
-  });
-
-  // Monospaced-digit controls: one checkbox per line, mirroring the Bold card.
-  // An explicit font family (above) takes precedence over this toggle.
-  const topMonoEl = document.querySelector("#top-monospaced");
-  const bottomMonoEl = document.querySelector("#bottom-monospaced");
-
-  const applyMonospaced = () => {
-    const top = topMonoEl.checked;
-    const bottom = bottomMonoEl.checked;
-    updateMonospaced(top, bottom)
-      .then(() => {
-        const parts = [];
-        if (top) parts.push("top");
-        if (bottom) parts.push("bottom");
-        document.querySelector("#monospaced-log").textContent = parts.length
-          ? `Monospaced: ${parts.join(" + ")}`
-          : "System font (proportional)";
-      })
-      .catch((err) => {
-        document.querySelector("#monospaced-log").textContent = `Error: ${err}`;
-      });
-  };
-
-  document
-    .querySelector("#monospaced-form")
-    .addEventListener("submit", (e) => {
-      e.preventDefault();
-      applyMonospaced();
-    });
-
-  document.querySelector("#reset-monospaced").addEventListener("click", () => {
-    topMonoEl.checked = false;
-    bottomMonoEl.checked = false;
-    applyMonospaced();
-  });
-
-  // Alignment controls: one select per line (left/center/right), mirroring the
-  // per-line styling cards above. Alignment does not change the item width.
-  const topAlignEl = document.querySelector("#top-align");
-  const bottomAlignEl = document.querySelector("#bottom-align");
-  const alignName = (v) => (v === "1" ? "center" : v === "2" ? "right" : "left");
-
-  const applyAlignment = () => {
-    const top = parseInt(topAlignEl.value, 10) || 0;
-    const bottom = parseInt(bottomAlignEl.value, 10) || 0;
-    updateAlignment(top, bottom)
-      .then(() => {
-        const parts = [];
-        if (top !== 0) parts.push(`top ${alignName(topAlignEl.value)}`);
-        if (bottom !== 0) parts.push(`bottom ${alignName(bottomAlignEl.value)}`);
-        document.querySelector("#alignment-log").textContent = parts.length
-          ? `Aligned: ${parts.join(" + ")}`
-          : "Left (default)";
-      })
-      .catch((err) => {
-        document.querySelector("#alignment-log").textContent = `Error: ${err}`;
-      });
-  };
-
-  document
-    .querySelector("#alignment-form")
-    .addEventListener("submit", (e) => {
-      e.preventDefault();
-      applyAlignment();
-    });
-
-  document.querySelector("#reset-alignment").addEventListener("click", () => {
-    topAlignEl.value = "0";
-    bottomAlignEl.value = "0";
-    applyAlignment();
-  });
-
-  // Speed simulation: push a random up/down speed once per second (up on the
-  // top line, down on the bottom), formatted like a real traffic readout.
-  // With monospaced digits on, the digits keep a constant width; the render
-  // cache skips repaints when the formatted text is unchanged.
-  const speedToggleBtn = document.querySelector("#speed-toggle");
-  const speedLogEl = document.querySelector("#speed-log");
-  let speedTimer = null;
-
-  const formatSpeed = (bytesPerSec) => {
-    if (bytesPerSec < 1000) return `${bytesPerSec}B/s`;
-    const units = ["K/s", "M/s", "G/s", "T/s"];
-    let unit = Math.min(Math.floor(Math.log2(bytesPerSec) / 10), units.length - 1);
-    let value = bytesPerSec / Math.pow(1024, unit);
-    if (Math.round(value) >= 1000 && unit < units.length - 1) {
-      unit += 1;
-      value = bytesPerSec / Math.pow(1024, unit);
-    }
-    return value < 9.95
-      ? `${value.toFixed(1)}${units[unit]}`
-      : `${Math.round(value)}${units[unit]}`;
-  };
-
-  const tickSpeed = () => {
-    // Downlink usually dwarfs uplink; cap so the menu bar stays readable.
-    const up = Math.floor(Math.random() * 2 * 1024 * 1024);
-    const down = Math.floor(Math.random() * 40 * 1024 * 1024);
-    speedLogEl.textContent = `↑ ${formatSpeed(up)}  ↓ ${formatSpeed(down)}`;
-    invoke("plugin:multiline-menubar|set_text", {
-      payload: { id: ID, top: formatSpeed(up), bottom: formatSpeed(down) },
-    }).catch((err) => {
-      speedLogEl.textContent = `Error: ${err}`;
-    });
-  };
-
-  speedToggleBtn.addEventListener("click", () => {
-    if (speedTimer) {
-      clearInterval(speedTimer);
-      speedTimer = null;
-      speedToggleBtn.textContent = "Start simulating";
-      speedLogEl.textContent = "Stopped";
-    } else {
-      tickSpeed();
-      speedTimer = setInterval(tickSpeed, 1000);
-      speedToggleBtn.textContent = "Stop simulating";
-    }
-  });
-
-  // Create the "main" instance and wire events.
-  invoke("plugin:multiline-menubar|create", {
-    payload: { id: ID, top: topInput.value, bottom: bottomInput.value },
-  })
-    .then(() =>
-      // Default layout is emphasis-bottom: displayed top = small line,
-      // displayed bottom = large line. Seed the native side accordingly.
-      updateFontSizes(
-        Number(smallSizeInput.value),
-        Number(largeSizeInput.value)
-      )
-    )
-    .then(setupMainMenu)
-    .then(refreshMenubarStatus)
-    .catch((err) => console.error("Failed to initialize menubar:", err));
-
-  // Click events (per-instance, aligned with Tauri's TrayIconEvent::Click).
-  listen(`multiline-menubar://${ID}//click`, (event) => {
-    const { button, position, rect } = event.payload;
-    const logEl = document.querySelector("#click-log");
-    logEl.textContent =
-      `Last click: ${button} @ cursor (${Math.round(position.x)}, ${Math.round(
-        position.y
-      )}) rect ${Math.round(rect.width)}x${Math.round(rect.height)}`;
-  }).catch((err) => console.error("Failed to listen for clicks:", err));
-
-  // Hover events (per-instance, aligned with Tauri's Enter/Leave).
-  listen(`multiline-menubar://${ID}//enter`, (event) => {
-    document.querySelector("#hover-log").textContent =
-      `Entered ${event.payload.id} (rect ${Math.round(
-        event.payload.rect.width
-      )}x${Math.round(event.payload.rect.height)})`;
-  }).catch((err) => console.error("Failed to listen for enter:", err));
-
-  listen(`multiline-menubar://${ID}//leave`, () => {
-    document.querySelector("#hover-log").textContent = "Left the menu bar item";
-  }).catch((err) => console.error("Failed to listen for leave:", err));
-
-  // Removal event: the user ⌘-dragged the item out of the menu bar. The item
-  // is now gone until the host calls set_visible(id, true) / create() again.
-  listen(`multiline-menubar://${ID}//remove`, (event) => {
-    const removeLog = document.querySelector("#remove-log");
-    removeLog.textContent = `Removed from menu bar: ${event.payload.id} (⌘-drag out)`;
-    removeLog.classList.remove("muted");
-    const statusEl = document.querySelector("#menubar-status");
-    if (statusEl) statusEl.textContent = "Menu bar item was removed by the user";
-  }).catch((err) => console.error("Failed to listen for remove:", err));
+  // Create all 5 instances up front (macOS 26: create early at startup;
+  // runtime-created items may not show).
+  for (const id of INSTANCES) {
+    await createInstance(id).catch((err) =>
+      console.error(`Failed to create ${id}:`, err)
+    );
+    listenInstanceEvents(id);
+  }
+  renderList();
+  updateStatus();
 });

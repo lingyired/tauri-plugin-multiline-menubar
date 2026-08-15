@@ -8,6 +8,12 @@
 static NSColor *color_from_hex(NSString *hex);
 static NSColor *parse_color_style(NSString *json);
 
+// Forward declarations (defined further down): file-local diagnostics and the
+// per-instance visibility helper.
+@class MenubarInstance;
+static void diag_native(NSString *fmt, ...);
+static BOOL instance_is_visible(MenubarInstance *inst);
+
 // Vertical layout of the two lines. Naming is role-based rather than
 // position-based: in the two asymmetric modes one line is *emphasized* (larger,
 // regular weight — typically the value) and the other is de-emphasized
@@ -385,17 +391,14 @@ static NSColor *parse_color_style(NSString *json) {
 // weak, so the instance must own the handler or ARC deallocates it right away
 // and the button silently stops responding.
 @property (nonatomic, strong) MenubarHandler *handler;
-// Set while the host (Rust) programmatically hides or destroys the item, so
-// the KVO removal observer does not mistake that for a user dragging the item
-// out of the menu bar.
-@property (nonatomic, assign) BOOL programmaticHide;
-// True once the *user* has removed the item (⌘-drag out). Guards the observer
-// against the known KVO double-fire and prevents re-detecting after a
-// programmatic re-show.
-@property (nonatomic, assign) BOOL removedByUser;
+// True while the status item is actually in the menu bar. macOS 26-compatible
+// hide/show: hiding REMOVES the item (`removeStatusItem` — never
+// `setVisible(false)`, which macOS 26 records as a permanent per-item hide),
+// and showing REBUILDS a brand-new item when it is not in the bar anymore
+// (the same off→on recovery key Stats relies on after the user ⌘-drags any
+// item out: macOS then re-registers the whole app's menu bar).
+@property (nonatomic, assign) BOOL itemInBar;
 - (void)updateWidth;
-- (void)startObservingRemoval;
-- (void)stopObservingRemoval;
 @end
 
 // Global registry of menubar instances, keyed by id.
@@ -403,11 +406,6 @@ static NSMutableDictionary<NSString *, MenubarInstance *> *g_instances = nil;
 static MultilineMenubarClickCallback g_clickCallback = NULL;
 static MultilineMenubarHoverCallback g_hoverCallback = NULL;
 static MultilineMenubarRemoveCallback g_removeCallback = NULL;
-
-/// KVO context for the `visible` / `button.window` observation. A non-null
-/// pointer guarantees our `observeValueForKeyPath:` only reacts to *our*
-/// observation and never a superclass's.
-static void *kRemovalContext = &kRemovalContext;
 
 @implementation MenubarInstance
 
@@ -442,92 +440,14 @@ static void *kRemovalContext = &kRemovalContext;
   self.statusItem.length = width;
 }
 
-// Register the KVO observer that detects a user-initiated removal.
-//
-// On macOS 13+ the item exposes a `visible` property that the system flips to
-// NO when the user removes it (⌘-drag out); observing that is the documented
-// approach. On older systems `visible` does not exist, so we instead observe
-// the button's `window`: removal pulls the button out of its window, leaving
-// it nil — the same signal, just a different key.
-- (void)startObservingRemoval {
-  if (@available(macOS 13.0, *)) {
-    [self.statusItem addObserver:self
-                       forKeyPath:@"visible"
-                          options:NSKeyValueObservingOptionNew
-                          context:kRemovalContext];
-  } else {
-    [self.statusItem.button addObserver:self
-                              forKeyPath:@"window"
-                                 options:NSKeyValueObservingOptionNew
-                                 context:kRemovalContext];
-  }
-}
-
-- (void)stopObservingRemoval {
-  @try {
-    if (@available(macOS 13.0, *)) {
-      [self.statusItem removeObserver:self
-                            forKeyPath:@"visible"
-                               context:kRemovalContext];
-    } else if (self.statusItem.button) {
-      [self.statusItem.button removeObserver:self
-                                  forKeyPath:@"window"
-                                     context:kRemovalContext];
-    }
-  } @catch (NSException *exception) {
-    // Removing an observer that was never added throws; ignore it so a
-    // double-stopObservingRemoval (e.g. destroy + dealloc) cannot crash.
-  }
-}
-
-// KVO entry point. Only reacts to our own `visible` / `window` observation
-// (matched via `kRemovalContext`).
-- (void)observeValueForKeyPath:(NSString *)keyPath
-                      ofObject:(id)object
-                        change:(NSDictionary<NSKeyValueChangeKey, id> *)change
-                       context:(void *)context {
-  if (context != kRemovalContext) {
-    [super observeValueForKeyPath:keyPath
-                         ofObject:object
-                           change:change
-                          context:context];
-    return;
-  }
-
-  // Already handled (covers the known KVO double-fire on `visible`), or this is
-  // a programmatic hide/destroy that set `programmaticHide` around the call —
-  // in either case it is not a user removal, so stay quiet.
-  if (self.removedByUser || self.programmaticHide) {
-    return;
-  }
-
-  BOOL gone = NO;
-  if (@available(macOS 13.0, *)) {
-    if ([keyPath isEqualToString:@"visible"]) {
-      NSNumber *newValue = change[NSKeyValueChangeNewKey];
-      gone = (newValue != nil) && (newValue.boolValue == NO);
-    }
-  } else {
-    if ([keyPath isEqualToString:@"window"]) {
-      // The button was pulled out of its window (removed from the bar).
-      gone = (self.statusItem.button.window == nil);
-    }
-  }
-
-  if (gone) {
-    self.removedByUser = YES;
-    if (g_removeCallback) {
-      g_removeCallback([self.instanceId UTF8String]);
-    }
-    // Keep the instance in `g_instances` (a programmatic show can resurrect
-    // it via `visible = YES`); subsequent setters are harmless no-ops on the
-    // dead item until then.
-  }
-}
-
-- (void)dealloc {
-  [self stopObservingRemoval];
-}
+// User-removal detection (⌘-drag out) is intentionally NOT implemented in the
+// macOS 26 scheme: `NSStatusItemBehaviorRemovalAllowed` is not set (setting it
+// makes macOS 26 auto-remove and remember third-party items, permanently
+// hiding them on later launches), and KVO on `visible` is prone to a startup
+// transient where the item briefly reports NO — misdetecting a "user removal"
+// and never putting the item in the bar. Hosts detect a drag-out by polling
+// `is_visible` (returns false once the system detaches the item) and recover
+// by calling `set_visible(true)`, which rebuilds the item.
 
 @end
 
@@ -638,41 +558,44 @@ static void redraw_instance(MenubarInstance *inst) {
   [inst updateWidth];
 }
 
-static MenubarInstance *ensure_instance(NSString *key) {
-  if (!g_instances) {
-    g_instances = [NSMutableDictionary dictionary];
-  }
-  MenubarInstance *inst = g_instances[key];
-  if (inst) {
-    return inst;
-  }
-
-  inst = [[MenubarInstance alloc] init];
-  inst.instanceId = key;
-  inst.smallFontSize = kDefaultSmallSize;
-  inst.largeFontSize = kDefaultLargeSize;
-  inst.equalFontSize = kDefaultEqualSize;
-  inst.layoutMode = MenubarLayoutEmphasisBottom;
-  inst.menu = nil;
-
+/// Build a brand-new `NSStatusItem` for the instance and wire up the custom
+/// view, the click/hover handler and the tracking area. Used both at first
+/// creation and on every re-show after the item was removed (hide or the user
+/// ⌘-dragging it out) — the Stats-style recovery key: macOS re-registers the
+/// app's menu bar when an item is created anew.
+///
+/// Note: `NSStatusItemBehaviorRemovalAllowed` is deliberately NOT set — on
+/// macOS 26 that behavior makes the system auto-remove and remember third-party
+/// items, permanently hiding them on later launches.
+static void build_status_item(MenubarInstance *inst) {
   inst.statusItem = [[NSStatusBar systemStatusBar]
       statusItemWithLength:NSVariableStatusItemLength];
-  // Allow the user to remove the item via ⌘-drag out of the menu bar. Without
-  // this behavior the system gesture does nothing for third-party items, and
-  // there would be nothing to detect. (Available since macOS 10.12.)
-  inst.statusItem.behavior = NSStatusItemBehaviorRemovalAllowed;
   inst.statusItem.button.title = @"";
   inst.statusItem.button.image = nil;
 
-  inst.view = [[MultilineMenubarView alloc] initWithFrame:NSMakeRect(0, 0, 60, 22)];
-  inst.view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+  // Give the item a stable identity (same trick Stats uses on every create).
+  // Without it, macOS treats each rebuilt item as brand-new and re-queues it
+  // at a different menu-bar position, which shuffles the other instances
+  // around (on a notch display one of them ends up hidden behind the notch).
+  // With it, the system remembers this item's position and restores it on
+  // rebuild, so hide→show never disturbs the other items.
+  inst.statusItem.autosaveName = inst.instanceId;
+
+  if (!inst.view) {
+    inst.view = [[MultilineMenubarView alloc] initWithFrame:NSMakeRect(0, 0, 60, 22)];
+    inst.view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+  }
   apply_layout_sizes(inst);
+  // Detach the view from any previous (removed) button first, then mount it
+  // on the fresh one — addSubview would do this anyway, but being explicit
+  // rules out a stale-superview edge case on rebuild.
+  [inst.view removeFromSuperview];
   [inst.statusItem.button addSubview:inst.view];
 
   // Per-instance click/hover handler. Retained by the instance (see the
   // property declaration) because AppKit only holds it weakly.
   MenubarHandler *handler = [[MenubarHandler alloc] init];
-  handler.instanceId = key;
+  handler.instanceId = inst.instanceId;
   inst.handler = handler;
   inst.statusItem.button.target = handler;
   inst.statusItem.button.action = @selector(handleClick:);
@@ -690,10 +613,36 @@ static MenubarInstance *ensure_instance(NSString *key) {
           userInfo:nil];
   [inst.statusItem.button addTrackingArea:tracking];
 
-  // Begin watching for a user-initiated removal (⌘-drag out). Must run after
-  // the status item exists so `visible`/`button.window` is observable.
-  [inst startObservingRemoval];
+  // Repaint whatever text/style the instance already holds.
+  redraw_instance(inst);
+  inst.itemInBar = YES;
+  diag_native(@"build_status_item id=%@ statusItem=%p", inst.instanceId, inst.statusItem);
+}
 
+static MenubarInstance *ensure_instance(NSString *key) {
+  if (!g_instances) {
+    g_instances = [NSMutableDictionary dictionary];
+  }
+  MenubarInstance *inst = g_instances[key];
+  if (inst) {
+    // The instance survives hide/destroy of the item: if it is no longer in
+    // the bar (hidden, or the user dragged it out), rebuild a fresh item.
+    if (!inst.itemInBar) {
+      build_status_item(inst);
+    }
+    return inst;
+  }
+
+  inst = [[MenubarInstance alloc] init];
+  inst.instanceId = key;
+  inst.smallFontSize = kDefaultSmallSize;
+  inst.largeFontSize = kDefaultLargeSize;
+  inst.equalFontSize = kDefaultEqualSize;
+  inst.layoutMode = MenubarLayoutEmphasisBottom;
+  inst.menu = nil;
+  inst.itemInBar = NO;
+
+  build_status_item(inst);
   g_instances[key] = inst;
   return inst;
 }
@@ -716,42 +665,82 @@ static void run_on_main_sync(dispatch_block_t block) {
   }
 }
 
+// Temporary diagnostics for the show/hide state bug (macOS 26 auto-manages
+// items). Write to a file so LaunchServices-launched apps (no console) still
+// produce evidence. REMOVE BEFORE RELEASE.
+static void diag_native(NSString *fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  NSString *msg = [[NSString alloc] initWithFormat:fmt arguments:args];
+  va_end(args);
+  NSString *line = [NSString stringWithFormat:@"%@ %@\n",
+                    [NSDate date], msg];
+  NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:@"/tmp/menubar-diag.log"];
+  if (!fh) {
+    [[NSFileManager defaultManager] createFileAtPath:@"/tmp/menubar-diag.log"
+                                             contents:nil attributes:nil];
+    fh = [NSFileHandle fileHandleForWritingAtPath:@"/tmp/menubar-diag.log"];
+  }
+  if (fh) {
+    [fh seekToEndOfFile];
+    [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]];
+    [fh closeFile];
+  }
+}
+
 // ---------------------------------------------------------------------------
 // C API
 // ---------------------------------------------------------------------------
 
-/// Show or hide a status item without releasing its slot in the bar.
+/// Show or hide a status item.
 ///
-/// `button.hidden` only hides the view but leaves a reserved (blank) gap in
-/// the menu bar, because the item is still part of the system's status items.
-/// `NSStatusItem.visible` (macOS 13+) removes the item from display AND frees
-/// the space, while keeping it in the array so its position is preserved when
-/// shown again. Fall back to `hidden` on older systems (where the gap remains
-/// — the only alternative pre-13 is removeStatusItem, which loses position).
-///
-/// Programmatic hides/destroys set `programmaticHide` around the call so the
-/// KVO removal observer does not mistake them for a user dragging the item out.
+/// macOS 26 compatibility (Stats-style semantics):
+/// * **Hide removes the item** (`removeStatusItem`) — never
+///   `statusItem.visible = NO`, which macOS 26 records as a permanent per-item
+///   hide that neither a re-show nor a relaunch can undo. The instance (text,
+///   style, menu) survives in `g_instances` so a later show can rebuild it.
+/// * **Show rebuilds** a brand-new `NSStatusItem` whenever the item is not in
+///   the bar (hidden, or the user ⌘-dragged it out and the system detached
+///   it). Recreating the item is the same recovery key Stats relies on: after
+///   the user re-enables the app in 系统设置-菜单栏, toggling any instance
+///   off→on recreates its item and the whole app's menu bar reappears.
 static void set_instance_visible(MenubarInstance *inst, BOOL visible) {
-  if (!inst || !inst.statusItem) return;
+  if (!inst) return;
   if (visible) {
-    // A re-show clears the user-removal flag so a later ⌘-drag can re-fire.
-    inst.removedByUser = NO;
+    // Rebuild whenever the item is not in the bar OR the system detached it
+    // behind our back (macOS 26 auto-manages items: `visible` can flip to NO
+    // even though `itemInBar` is still YES). Only a fresh item reliably
+    // reappears; setting `visible = YES` on a detached item is a no-op.
+    BOOL detached = !inst.itemInBar || !instance_is_visible(inst);
+    diag_native(@"set_visible id=%@ visible=1 itemInBar=%d sysVisible=%d",
+                inst.instanceId, inst.itemInBar,
+                inst.statusItem ? instance_is_visible(inst) : -1);
+    if (detached) {
+      if (inst.statusItem && inst.itemInBar) {
+        [[NSStatusBar systemStatusBar] removeStatusItem:inst.statusItem];
+      }
+      build_status_item(inst);
+    } else if (@available(macOS 13.0, *)) {
+      inst.statusItem.visible = YES;
+    } else {
+      inst.statusItem.button.hidden = NO;
+    }
   } else {
-    inst.programmaticHide = YES;
-  }
-  if (@available(macOS 13.0, *)) {
-    inst.statusItem.visible = visible;
-  } else {
-    inst.statusItem.button.hidden = !visible;
-  }
-  if (!visible) {
-    inst.programmaticHide = NO;
+    diag_native(@"set_visible id=%@ visible=0 itemInBar=%d sysVisible=%d",
+                inst.instanceId, inst.itemInBar,
+                inst.statusItem ? instance_is_visible(inst) : -1);
+    // Remove unconditionally: even if `itemInBar` is out of sync with the
+    // system (macOS 26 may have detached it), removeStatusItem is idempotent.
+    if (inst.statusItem) {
+      [[NSStatusBar systemStatusBar] removeStatusItem:inst.statusItem];
+    }
+    inst.itemInBar = NO;
   }
 }
 
-/// Current visibility, matching `set_instance_visible`.
+/// Current visibility: the item exists AND is actually in the menu bar.
 static BOOL instance_is_visible(MenubarInstance *inst) {
-  if (!inst || !inst.statusItem) return NO;
+  if (!inst || !inst.itemInBar || !inst.statusItem) return NO;
   if (@available(macOS 13.0, *)) {
     return inst.statusItem.visible;
   }
@@ -771,18 +760,13 @@ void multiline_menubar_destroy(const char *id) {
   dispatch_async(dispatch_get_main_queue(), ^{
     MenubarInstance *inst = g_instances[key];
     if (inst) {
-      // Stop observing first; the removal below (or a prior user removal) would
-      // otherwise trip the KVO observer. `programmaticHide` additionally
-      // guards the case where the item is still in the bar and `removeStatusItem`
-      // flips `visible`/tears down the window.
-      [inst stopObservingRemoval];
-      inst.programmaticHide = YES;
-      // If the user already dragged it out, the system has removed it and
-      // calling removeStatusItem again is redundant, so skip it.
-      if (!inst.removedByUser) {
+      // Remove the item from the bar if it is still there (if the user already
+      // ⌘-dragged it out, the system detached it and removeStatusItem would be
+      // redundant).
+      if (inst.itemInBar && inst.statusItem) {
         [[NSStatusBar systemStatusBar] removeStatusItem:inst.statusItem];
       }
-      inst.programmaticHide = NO;
+      inst.itemInBar = NO;
       [g_instances removeObjectForKey:key];
     }
   });
@@ -1038,6 +1022,26 @@ int multiline_menubar_is_visible(const char *id) {
   run_on_main_sync(^{
     MenubarInstance *inst = g_instances[key];
     result = instance_is_visible(inst) ? 1 : 0;
+  });
+  return result;
+}
+
+/// Whether the instance's item is actually mounted in a menu-bar window.
+///
+/// macOS 26 detaches items the user ⌘-drags out of the bar (the button's
+/// window becomes nil) while `visible` may still report YES — the drag-out
+/// turns into an app-level hide (系统设置-菜单栏 unchecks the app) rather than
+/// an item-level `visible = NO` flip. So `button.window != nil` is the
+/// reliable "the user removed this item" signal for the Rust-side drag-out
+/// poll.
+int multiline_menubar_is_on_screen(const char *id) {
+  __block int result = 0;
+  NSString *key = key_from_id(id);
+  run_on_main_sync(^{
+    MenubarInstance *inst = g_instances[key];
+    if (inst && inst.itemInBar && inst.statusItem) {
+      result = (inst.statusItem.button.window != nil) ? 1 : 0;
+    }
   });
   return result;
 }

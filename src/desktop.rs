@@ -65,6 +65,7 @@ extern "C" {
         height: *mut f64,
     ) -> std::os::raw::c_int;
     fn multiline_menubar_is_visible(id: *const c_char) -> std::os::raw::c_int;
+    fn multiline_menubar_is_on_screen(id: *const c_char) -> std::os::raw::c_int;
     fn multiline_menubar_set_click_handler(
         callback: Option<
             extern "C" fn(*const c_char, *const c_char, f64, f64, f64, f64, f64, f64),
@@ -161,8 +162,21 @@ struct InstanceState {
     monospaced: (bool, bool),
     /// Last top/bottom horizontal alignment (0 = left, 1 = center, 2 = right).
     alignment: (i32, i32),
+    /// Last top/bottom solid hex color (`#rrggbb`), `None` = system text color.
+    color: (Option<String>, Option<String>),
     /// Last layout mode (0 = stacked, 1 = balanced).
     layout: i32,
+    /// Last desired visibility (set by `set_visible`). The drag-out poll
+    /// compares this against the native item's real state.
+    visible: bool,
+    /// When the instance may be polled for a user drag-out. Set at create /
+    /// re-show; the first ~3s are skipped so the startup transient (an item
+    /// briefly reporting invisible right after creation) never trips the
+    /// detection.
+    armed_at: Option<Instant>,
+    /// True once a user drag-out has been reported for the current item, so
+    /// the poll does not re-emit `remove` every cycle. Cleared on re-show.
+    removed_notified: bool,
 }
 
 impl Default for InstanceState {
@@ -174,7 +188,11 @@ impl Default for InstanceState {
             font_family: (None, None),
             monospaced: (false, false),
             alignment: (0, 0),
+            color: (None, None),
             layout: 0,
+            visible: true,
+            armed_at: None,
+            removed_notified: false,
         }
     }
 }
@@ -257,6 +275,58 @@ extern "C" fn on_native_remove(id: *const c_char) {
         let _ = app.emit(
             format!("multiline-menubar://{}//remove", id_str).as_str(),
             serde_json::json!({ "id": id_str }),
+        );
+    }
+}
+
+/// Poll for user drag-out removals.
+///
+/// macOS 26 exposes no event when the user ⌘-drags a status item out of the
+/// menu bar (and we deliberately do not set `NSStatusItemBehaviorRemovalAllowed`
+/// / use KVO, see the native layer). Instead a background thread wakes every
+/// ~2s and, for every instance the host wants shown, compares the desired
+/// state against the native item's real visibility: a shown instance whose
+/// item reports invisible was detached by the system (drag-out) — emit the
+/// same `remove` event the frontend can surface (e.g. a "this item was removed,
+/// re-enable it" hint).
+#[cfg(target_os = "macos")]
+fn poll_drag_out_removals<R: Runtime>(app: &tauri::AppHandle<R>) {
+    let candidates: Vec<String> = {
+        let instances = instances().lock().unwrap_or_else(|e| e.into_inner());
+        instances
+            .iter()
+            .filter(|(_, s)| {
+                s.visible
+                    && !s.removed_notified
+                    && s.armed_at
+                        .map(|t| t.elapsed() >= Duration::from_secs(3))
+                        .unwrap_or(false)
+            })
+            .map(|(id, _)| id.clone())
+            .collect()
+    };
+
+    for id in candidates {
+        let Ok(c) = CString::new(id.as_str()) else {
+            continue;
+        };
+        // A shown instance whose item is no longer mounted in a menu-bar
+        // window (button.window == nil) was detached by the system — the user
+        // ⌘-dragged it out. (`visible` may still report YES for an app-level
+        // hide, so we key on the window instead.)
+        let still_there = unsafe { multiline_menubar_is_on_screen(c.as_ptr()) } != 0;
+        if still_there {
+            continue;
+        }
+        {
+            let mut instances = instances().lock().unwrap_or_else(|e| e.into_inner());
+            if let Some(s) = instances.get_mut(&id) {
+                s.removed_notified = true;
+            }
+        }
+        let _ = app.emit(
+            format!("multiline-menubar://{}//remove", id).as_str(),
+            serde_json::json!({ "id": id }),
         );
     }
 }
@@ -550,7 +620,13 @@ fn position_popup_under_status_item(
         // The menu bar sits at the top of the screen. Place the popup's top
         // edge at the bottom of the status item. macOS y grows upward,
         // Tauri y grows downward, so flip it.
-        let tauri_y = screen_h - ry - win_h;
+        let mut tauri_y = screen_h - ry - win_h;
+        // A tall popup (e.g. the settings panel at 700pt) does not fit below
+        // the menu bar: clamp its top edge to the screen top so its bottom
+        // half is not clipped off-screen.
+        if tauri_y < 0.0 {
+            tauri_y = 0.0;
+        }
 
         let _ = win.set_position(Position::Logical(tauri::LogicalPosition::new(
             tauri_x, tauri_y,
@@ -604,7 +680,9 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
                 "topMonospaced": state.monospaced.0,
                 "bottomMonospaced": state.monospaced.1,
                 "topAlign": state.alignment.0,
-                "bottomAlign": state.alignment.1
+                "bottomAlign": state.alignment.1,
+                "topColor": state.color.0,
+                "bottomColor": state.color.1
             }),
         );
     }
@@ -751,6 +829,19 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
                 payload,
             );
         });
+
+        // Background poll for user drag-out removals (see
+        // `poll_drag_out_removals`). Runs on the main thread every ~2s so the
+        // native visibility reads stay thread-safe; the checks are cheap.
+        {
+            let poll_app = app.clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                let app = poll_app.clone();
+                let check = app.clone();
+                let _ = app.run_on_main_thread(move || poll_drag_out_removals(&check));
+            });
+        }
     }
 
     Ok(MultilineMenubar(app.clone()))
@@ -770,6 +861,14 @@ impl<R: Runtime> MultilineMenubar<R> {
             let c = CString::new(id.as_str())
                 .map_err(|_| crate::Error::InvalidArgument("id contains a NUL byte".into()))?;
             unsafe { multiline_menubar_create(c.as_ptr()) };
+            // Arm the drag-out poll for this instance (skips the first ~3s so
+            // the startup transient can never be misread as a user removal).
+            instances()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(id.clone())
+                .or_default()
+                .armed_at = Some(Instant::now());
             if let Some(app) = APP_HANDLE.get() {
                 let _ = app.emit(
                     format!("multiline-menubar://{}//ready", id).as_str(),
@@ -1035,6 +1134,23 @@ impl<R: Runtime> MultilineMenubar<R> {
     ) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
+            // Remember the hex values so the popup can show this instance's
+            // current colors when it opens (mirrors the other setters).
+            let top_hex = match &top {
+                crate::models::ColorStyle::Solid { value } => Some(value.clone()),
+                crate::models::ColorStyle::Default => None,
+            };
+            let bottom_hex = match &bottom {
+                crate::models::ColorStyle::Solid { value } => Some(value.clone()),
+                crate::models::ColorStyle::Default => None,
+            };
+            instances()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(id.clone())
+                .or_default()
+                .color = (top_hex, bottom_hex);
+
             let top_json =
                 serde_json::to_string(&top).map_err(|e| crate::Error::Menu(e.to_string()))?;
             let bottom_json = serde_json::to_string(&bottom)
@@ -1254,12 +1370,25 @@ impl<R: Runtime> MultilineMenubar<R> {
     pub fn set_visible(&self, id: String, visible: bool) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
-            let c = CString::new(id)
+            let c = CString::new(id.clone())
                 .map_err(|_| crate::Error::InvalidArgument("id contains a NUL byte".into()))?;
             if visible {
                 unsafe { multiline_menubar_show(c.as_ptr()) };
             } else {
                 unsafe { multiline_menubar_hide(c.as_ptr()) };
+            }
+
+            // Track the *desired* visibility so the drag-out poll can tell a
+            // real user removal (shown but item detached) from a programmatic
+            // hide. Re-showing re-arms the poll (fresh item, re-notifyable).
+            {
+                let mut instances = instances().lock().unwrap_or_else(|e| e.into_inner());
+                let state = instances.entry(id.clone()).or_default();
+                state.visible = visible;
+                if visible {
+                    state.removed_notified = false;
+                    state.armed_at = Some(Instant::now());
+                }
             }
             return Ok(());
         }

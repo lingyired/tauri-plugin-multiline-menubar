@@ -127,8 +127,8 @@
 
   <body>
     <div class="card">
-      <h2 id="popup-header">Menu Bar Popup</h2>
-      <p>This popup is anchored below the macOS menu bar item.</p>
+      <h2 id="popup-header">Instance settings</h2>
+      <p>Edit this menubar instance's text and appearance below.</p>
 
       <div class="field">
         <label for="popup-top">Top label</label>
@@ -138,6 +138,10 @@
         <label for="popup-bottom">Bottom value</label>
         <input type="text" id="popup-bottom" value="+4569" />
       </div>
+      <div class="row">
+        <button id="popup-text-update">Update</button>
+        <button id="popup-text-reset" class="secondary">Reset</button>
+      </div>
 
       <fieldset class="colors">
         <legend>Top line color</legend>
@@ -146,7 +150,7 @@
           <input type="color" id="popup-top-color" value="#7fd1ff" />
         </div>
         <div class="field">
-          <label for="popup-top-hex">Hex (use if the picker won't open)</label>
+          <label for="popup-top-hex">Hex (auto-filled, editable)</label>
           <input type="text" id="popup-top-hex" value="#7fd1ff" />
         </div>
       </fieldset>
@@ -158,10 +162,14 @@
           <input type="color" id="popup-bottom-color" value="#ffd166" />
         </div>
         <div class="field">
-          <label for="popup-bottom-hex">Hex (use if the picker won't open)</label>
+          <label for="popup-bottom-hex">Hex (auto-filled, editable)</label>
           <input type="text" id="popup-bottom-hex" value="#ffd166" />
         </div>
       </fieldset>
+      <div class="row">
+        <button id="popup-colors">Apply colors</button>
+        <button id="popup-reset" class="secondary">Reset</button>
+      </div>
 
       <fieldset class="colors">
         <legend>Font size</legend>
@@ -218,6 +226,7 @@
         </div>
         <div class="row">
           <button id="popup-sizes">Apply sizes</button>
+          <button id="popup-sizes-reset" class="secondary">Reset</button>
         </div>
       </fieldset>
 
@@ -290,11 +299,6 @@
       </fieldset>
 
       <div class="row">
-        <button id="popup-colors">Apply colors</button>
-        <button id="popup-reset" class="secondary">Reset</button>
-      </div>
-      <div class="row">
-        <button id="popup-update">Update</button>
         <button id="popup-close" class="secondary">Close</button>
       </div>
     </div>

@@ -183,6 +183,14 @@ int multiline_menubar_get_rect(const char *id, double *x, double *y,
 int multiline_menubar_is_visible(const char *id);
 
 /**
+ * Returns 1 if the instance's item is currently mounted in a menu-bar window
+ * (button.window != nil), 0 otherwise. On macOS 26 a ⌘-drag-out detaches the
+ * item (window becomes nil) while `visible` may still report YES, so this is
+ * the reliable "user removed the item" signal.
+ */
+int multiline_menubar_is_on_screen(const char *id);
+
+/**
  * Register the click callback. The host (Rust) uses it to open a popup window
  * below the item and emit click events. Pass NULL to clear.
  */
