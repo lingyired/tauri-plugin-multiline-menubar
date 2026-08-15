@@ -29,8 +29,44 @@ so newly added `allow-*` permissions are picked up automatically. Run it with:
 ```bash
 cd examples/demo
 npm install
-npm run tauri dev
+npm run tauri:dev
 ```
+
+## Dev vs release bundle identity (macOS 26)
+
+`examples/demo` must use **different** bundle IDs and app names for dev and
+release builds, or the two builds pollute each other's state on macOS 26.
+
+Background: macOS 26 Control Center keeps a "recently used apps" list and
+remembers menu-bar visibility **per bundle ID**; that remembered state
+survives app updates and is keyed by the bundle ID, not the binary. If dev
+and release share a bundle ID, one run can mark the item hidden for the other
+— the app launches but **no menu bar item appears at all**, and toggling in
+System Settings may not reliably recover it because both builds keep
+overwriting the same remembered state. Reference:
+https://b-log.to/tech-analysis/macos-26-controlcenter-trackedapplications-ghost/
+
+Rules:
+
+- Dev runs (`npm run tauri:dev`, i.e. `tauri dev --config
+  src-tauri/tauri.conf.dev.json`) get a **dev-suffixed identity**:
+  `productName = multiline-menubar-demo-new-dev`,
+  `identifier = com.tauri.multiline-menubar-demo-new.dev`.
+  Tauri v2 merges `tauri.conf.dev.json` only via the explicit `--config`
+  flag (JSON Merge Patch, RFC 7396) — it is **not** loaded automatically.
+- Release runs (`npm run tauri:build`, i.e. `tauri build`) keep the base
+  `tauri.conf.json` identity. Never change the release ID to match dev.
+- Any new demo/app must use its own distinct identifier; never reuse another
+  app's bundle ID.
+
+Troubleshooting when the status item never appears after launching:
+
+1. Quit the app, then open **System Settings → Menu Bar** and toggle the
+   app's entry off and on again.
+2. Make sure no other build (dev vs release, or an older copy of the app)
+   shares the same bundle ID — conflicting IDs keep re-hiding each other.
+3. If it still won't show, rebuild the release app with a **brand-new
+   identifier** to rule out stale remembered state in Control Center.
 
 ## Versioning
 When the plugin's API changes, bump `Cargo.toml` **and** `package.json`
