@@ -21,8 +21,39 @@ by relative path (`../../..`), so it always builds against the source in this re
 ```bash
 cd examples/demo
 npm install
-npm run tauri dev   # macOS only
+npm run tauri:dev   # macOS only — uses the dev-suffixed bundle identity
 ```
+
+> Dev runs use a separate `dev`-suffixed bundle ID / app name
+> (`src-tauri/tauri.conf.dev.json`) so they never collide with release builds
+> on macOS 26 — see [Troubleshooting](#troubleshooting-status-item-missing-on-macos-26)
+> below.
+
+## Troubleshooting: status item missing on macOS 26
+
+On macOS 26, a menu-bar app can silently fail to show its status item if
+Control Center's "recently used apps" list still remembers an older build of
+the same app. macOS remembers menu-bar visibility **per bundle ID** and that
+state survives app updates, so a single run can mark the item hidden for every
+later run that shares the same bundle ID. This is tracked in
+[this analysis](https://b-log.to/tech-analysis/macos-26-controlcenter-trackedapplications-ghost/).
+
+If the status item does not appear after launching:
+
+1. Quit the app, then open **System Settings → Menu Bar** (Control Center)
+   and toggle the app's entry off and on again.
+2. Make sure you are not running two builds with the same bundle ID (e.g.
+   dev and release at the same time) — conflicting IDs keep re-hiding each
+   other.
+3. If it still does not show, rebuild the release app with a **brand-new
+   bundle ID** to rule out stale remembered state.
+
+To prevent this, always use a distinct bundle ID per flavor: the demo's
+`npm run tauri:dev` appends `dev` to the identity
+(`productName` `multiline-menubar-demo-new-dev`,
+`identifier` `com.tauri.multiline-menubar-demo-new.dev`), while
+`npm run tauri:build` keeps the release identity, so dev and release never
+share a bundle ID.
 
 ## Rust usage
 
