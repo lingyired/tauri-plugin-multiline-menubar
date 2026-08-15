@@ -342,18 +342,8 @@ export async function onMenuSelection(
 /**
  * Subscribe to the user removing the status item (⌘-drag out of the menu bar).
  *
- * macOS 26 exposes no event for this, and the plugin deliberately does not set
- * `NSStatusItemBehaviorRemovalAllowed` (that behavior makes the system
- * auto-remove and remember third-party items, permanently hiding them on later
- * launches). Instead the plugin polls every ~2s: a shown instance whose native
- * item reports invisible was detached by the system (a drag-out) and this
- * event is emitted — after which the host typically tells the user to re-enable
- * the item via {@link setVisible} / {@link create}.
- *
- * `isVisible` also returns `false` once the item is detached, so hosts may
- * poll it instead of subscribing to this event.
- *
- * Returns the usual Tauri unlisten function.
+ * Returns the usual Tauri unlisten function. After this fires the item is gone
+ * until the host calls {@link setVisible} / {@link create} again.
  *
  * ```ts
  * await onRemove('main', (e) => {

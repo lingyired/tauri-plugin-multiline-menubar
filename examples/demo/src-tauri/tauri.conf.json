@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "MenubarLegacy160",
+  "productName": "multiline-menubar-demo-new",
   "version": "0.1.0",
-  "identifier": "com.tauri.menubarlegacy160",
+  "identifier": "com.tauri.multiline-menubar-demo-new",
   "build": {
     "frontendDist": "../src"
   },
@@ -11,13 +11,13 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "tauri-app",
+        "title": "Multiline Menubar Demo",
         "width": 800,
         "height": 600
       },
       {
         "label": "popup",
-        "title": "Multiline Menubar Popup",
+        "title": "Multiline Menubar Demo Popup",
         "url": "popup.html",
         "width": 400,
         "height": 700,
