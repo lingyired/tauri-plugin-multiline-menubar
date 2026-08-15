@@ -150,55 +150,9 @@ isVisible()       → itemInBar && statusItem.visible
 - [ ] demo 的 `tauri.conf.json` bundle id 是否作为正式值
 
 
-## 7. Demo 界面设计（当前形态，2026-08-15）
+## 7. Demo 界面设计
 
-> 这套界面形态比旧 demo 合理（用户认可），作为宿主（fund01）可参考的设置/管理交互范式。
-
-### 7.1 主窗口（设置界面，index.html）
-
-```
-Multiline Menubar Plugin
-[⚠️ 红色警示条：菜单栏项被移出 — 系统设置→菜单栏 勾选后点 Rebuild shown]   ← 拖出时出现，恢复后消失
-说明文案（5 实例 + macOS 26 拖出恢复提示）
-┌ Menubar instances ─────────────────────────────┐
-│ [Rebuild shown] [Show all] [Hide all]  状态    │
-│ ┌──────────────────────────────────────────┐  │
-│ │ mb-1   "mb-1"/"mb-1"        [===● 开关]  │  │  ← 每行：实例名 + 当前文本 + switch
-│ │ mb-2   "mb-2"/"mb-2"        [===● 开关]  │  │
-│ │ ...（mb-3/4/5 同）                        │  │
-│ └──────────────────────────────────────────┘  │
-│ Click an item in the menu bar to open its settings popup. │
-└──────────────────────────────────────────────┘
-```
-
-- 5 个固定实例 mb-1…mb-5，启动即创建；shown 状态存 localStorage（重启保持）
-- 每实例独立 **switch toggle**（iOS 风格）；Rebuild shown = stats 恢复钥匙（全部 off→on）
-- **移除警示 banner**（红色）：收到 remove 事件显示，Rebuild/Show all 后隐藏
-
-### 7.2 菜单栏（menubar）
-
-- 5 个 item：两行文本都显示自身 id（`mb-1`…`mb-5`，方便沟通指认），默认 emphasis-bottom 布局（上小下大）
-- **右键菜单**：`MenubarLegacy160 v0.1.0`（disabled 版本行）+ 分隔 + `Quit (⌘Q)`（内置 quit id，Rust 侧退出）
-- 点击 item → 打开该实例的设置 popup；⌘拖出 → 触发 remove 事件（插件轮询检测）
-
-### 7.3 Popup（实例设置面板，400×700）
-
-标题：`Instance settings — mb-N`（打开时填充该实例当前值）
-
-| 区块 | 控件 | 按钮 |
-|---|---|---|
-| 文本 | Top label / Bottom value | Update / Reset（Reset=恢复 mb-N） |
-| 颜色 | Top/Bottom color picker + Hex（picker 选中自动填 hex，可手改） | Apply colors / Reset（回系统色） |
-| 字号 | 布局 radio（Small·Large / 镜像 / Equal）+ 大小滑块 | Apply sizes / Reset（恢复 7/12/9） |
-| 加粗 | Top/Bottom bold checkbox | Apply bold / Reset |
-| 字体族 | Top/Bottom family 输入 | Apply family / Reset |
-| 等宽数字 | Top/Bottom checkbox | Apply / Reset |
-| 对齐 | Top/Bottom select（Left/Center/Right） | Apply / Reset |
-| 底部 | — | Close |
-
-- 每个选项组独立 Update/Reset，改完即点，不用滚到底部
-- 所有改动只作用于当前实例（popup-open 事件携带实例 id + 当前值回显）
-
+独立文档：**[docs/demo-interface-design.md](demo-interface-design.md)** —— 设置界面（5 实例 list + switch + 警示 banner）、菜单栏（右键菜单/点击开 popup）、Popup 设置面板（400×700 分组按钮/状态回显）的完整设计说明与实现文件映射。
 ## 8. 附录：macOS 26 Control Center 记忆机制（参考文章要点）
 
 来源：https://b-log.to/tech-analysis/macos-26-controlcenter-trackedapplications-ghost/
