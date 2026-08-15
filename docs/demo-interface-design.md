@@ -46,7 +46,7 @@ Multiline Menubar Plugin
   - **Rebuild shown** = stats 恢复钥匙：全部可见实例先 off 再 on（重建 item → 系统重新注册整个 app 菜单栏）
   - **Show all / Hide all**：批量开关
 - **红色移除警示 banner**（`.remove-banner`）：收到 `remove` 事件（⌘拖出）显示，文案提示「系统设置-菜单栏勾选 + Rebuild shown」；Rebuild/Show all 后隐藏
-- **持久化**：shown 状态存 `localStorage`（key `multiline-menubar:shown-v1`），重启保持
+- **持久化**：shown 状态存 `localStorage`（key `multiline-menubar-demo-new:shown-v1`），重启保持
 - 状态行：`5 instances · showing 3 / hidden 2`
 
 ### 样式（styles.css）
@@ -61,7 +61,7 @@ Multiline Menubar Plugin
 
 - **5 个 item**：两行文本都显示自身 id（`mb-1`…`mb-5`，便于沟通指认），默认 emphasis-bottom 布局（上小下大）
 - **点击** → 打开该实例的设置 popup（插件 `click` 事件 + auto-popup）
-- **右键菜单**：`MenubarLegacy160 v0.1.0`（disabled 版本行）+ 分隔 + `Quit (⌘Q)`（内置 `quit` id，Rust 侧 `app.exit`，无需 JS 处理）
+- **右键菜单**：`multiline-menubar-demo-new v0.1.0`（disabled 版本行）+ 分隔 + `Quit (⌘Q)`（内置 `quit` id，Rust 侧 `app.exit`，无需 JS 处理）
 - **⌘拖出** → 插件 2s 轮询检测（`button.window` 脱离）→ emit `remove` 事件 → 设置界面显示红色警示条
 
 ---
