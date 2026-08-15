@@ -11,32 +11,23 @@
   <body>
     <main class="container">
       <h1>Multiline Menubar Plugin</h1>
-
-      <div id="remove-banner" class="remove-banner" hidden>
-        <strong>⚠️ 菜单栏项被移出</strong>
-        <span>
-          请在 <b>系统设置 → 菜单栏</b> 中重新勾选 <b>MenubarLegacy160</b>，然后点击
-          下方的 <b>Rebuild shown</b> 按钮，所有实例才会重新显示。
-        </span>
-      </div>
+      <p class="muted">multiline-menubar-demo-new · com.tauri.multiline-menubar-demo-new</p>
 
       <p class="muted">
-        5 menubar instances (mb-1 … mb-5), Stats-style. Toggle each one
-        independently; click an item <b>in the menu bar</b> to open its
-        settings popup (text, fonts, sizes, bold, colors, alignment, layout).
-        The shown/hidden arrangement survives a restart.
+        5 menubar instances (mb-1 … mb-5). Toggle each one independently; click
+        an item <b>in the menu bar</b> to open its settings popup (text, fonts,
+        sizes, bold, colors, alignment, layout). The shown/hidden arrangement
+        survives a restart.
       </p>
       <p class="muted">
-        macOS 26: ⌘-dragging ANY item out hides the whole app's menu bar
-        (系统设置-菜单栏 unchecks the app). Re-check it there, then click
-        <b>Rebuild shown</b> to restore every shown instance (the same off→on
-        recovery key Stats uses — click again if they don't appear at once).
+        macOS 26: ⌘-dragging an item out removes <b>only that item</b> — its
+        toggle turns off here, the other 4 stay on. Re-open the toggle to bring
+        it back (no 系统设置 needed).
       </p>
 
       <section class="card">
         <h2>Menubar instances</h2>
         <div class="row">
-          <button type="button" id="rebuild-all-btn">Rebuild shown</button>
           <button type="button" id="show-all-btn">Show all</button>
           <button type="button" id="hide-all-btn">Hide all</button>
           <span id="instance-status" class="muted"></span>

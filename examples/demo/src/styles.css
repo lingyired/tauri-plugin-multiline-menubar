@@ -185,7 +185,7 @@ input[type="color"] {
 }
 
 /* ---------------------------------------------------------------------------
- * Instance list (Stats-style multi-instance panel)
+ * Instance list (multi-instance management panel)
  * ------------------------------------------------------------------------- */
 
 .instance-list {
@@ -265,44 +265,4 @@ input[type="color"] {
 
 .switch input:checked + .slider::before {
   transform: translateX(16px);
-}
-
-/* ---------------------------------------------------------------------------
- * Drag-out warning banner (top of the window)
- * ------------------------------------------------------------------------- */
-
-.remove-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin: 4px 0 14px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: rgba(220, 38, 38, 0.1);
-  border: 1px solid rgba(220, 38, 38, 0.4);
-  color: #dc2626;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.remove-banner[hidden] {
-  display: none;
-}
-
-.remove-banner strong {
-  color: #dc2626;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-@media (prefers-color-scheme: dark) {
-  .remove-banner {
-    background: rgba(239, 68, 68, 0.12);
-    border-color: rgba(239, 68, 68, 0.35);
-    color: #f87171;
-  }
-  .remove-banner strong {
-    color: #ef4444;
-  }
 }

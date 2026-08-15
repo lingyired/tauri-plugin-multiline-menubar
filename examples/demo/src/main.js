@@ -2,16 +2,25 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 // ---------------------------------------------------------------------------
-// 5 fixed menubar instances (mb-1 … mb-5), Stats-style. Each item just shows
-// its own id on both lines, so we can talk about "mb-3" without ambiguity.
-// Click an item in the menu bar to open its settings popup (text, fonts,
-// sizes, bold, colors, alignment, layout — all editable per instance there).
+// 5 fixed menubar instances (mb-1 … mb-5). Each item just shows its own id on
+// both lines, so we can talk about "mb-3" without ambiguity. Click an item in
+// the menu bar to open its settings popup (text, fonts, sizes, bold, colors,
+// alignment, layout — all editable per instance there).
+//
+// v1.6.0 semantics:
+//   - hide  = set_visible(false) → visible=NO (programmaticHide guard, no
+//     remove event fires)
+//   - show  = set_visible(true)  → visible=YES (resets removedByUser, so a
+//     previously ⌘-dragged-out item comes back)
+//   - ⌘-drag-out = the SYSTEM removes that single item → KVO detects it →
+//     `{id}//remove` event → we only flip that instance's toggle off; the
+//     other 4 stay untouched (no app-wide banner, no Rebuild shown).
 //
 // The shown/hidden state of each instance is persisted to localStorage, so a
 // restart keeps the same arrangement.
 // ---------------------------------------------------------------------------
 const INSTANCES = ["mb-1", "mb-2", "mb-3", "mb-4", "mb-5"];
-const STORAGE_KEY = "multiline-menubar:shown-v1";
+const STORAGE_KEY = "multiline-menubar-demo-new:shown-v1";
 
 const created = new Set();
 let shown = loadShown(); // { id: boolean }
@@ -47,8 +56,8 @@ async function createInstance(id) {
   });
   created.add(id);
   await setupInstanceMenu(id);
-  // Honor the persisted state: hidden instances are removed right after
-  // creation (setVisible(false) removes the item, never touches visible=NO).
+  // Honor the persisted state: a previously hidden instance is created
+  // invisible right away (set_visible(false) → visible=NO, no remove event).
   if (shown[id] === false) {
     await invoke("plugin:multiline-menubar|set_visible", {
       payload: { id, visible: false },
@@ -68,7 +77,7 @@ async function setupInstanceMenu(id) {
     payload: {
       id,
       items: [
-        { type: "item", id: "version", text: `MenubarLegacy160 v${version}`, disabled: true },
+        { type: "item", id: "version", text: `multiline-menubar-demo-new v${version}`, disabled: true },
         { type: "separator" },
         { type: "item", id: "quit", text: "Quit", accelerator: "CmdOrCtrl+Q" },
       ],
@@ -88,37 +97,9 @@ async function setInstanceVisible(id, visible) {
   updateStatus();
 }
 
-// Stats recovery key: drop every shown item, then rebuild each one. The
-// plugin's setVisible(true) rebuilds a fresh item whenever the item is
-// missing or was detached (hide removes it, a ⌘-drag detaches it), so a
-// single off→on pass is enough; if macOS still doesn't show them, click again.
-async function rebuildShown() {
-  const shownIds = INSTANCES.filter((id) => shown[id] !== false);
-  for (const id of shownIds) {
-    if (!created.has(id)) continue;
-    await invoke("plugin:multiline-menubar|set_visible", {
-      payload: { id, visible: false },
-    }).catch(() => {});
-  }
-  for (const id of shownIds) {
-    if (!created.has(id)) continue;
-    await invoke("plugin:multiline-menubar|set_visible", {
-      payload: { id, visible: true },
-    }).catch(() => {});
-  }
-  // A successful rebuild is the recovery action the banner asks for.
-  setRemoveBanner(false);
-  renderList();
-  updateStatus();
-}
-
 async function setAllVisible(visible) {
   for (const id of INSTANCES) {
     await setInstanceVisible(id, visible);
-  }
-  if (visible) {
-    // Show all is also a full recovery action.
-    setRemoveBanner(false);
   }
 }
 
@@ -175,29 +156,23 @@ function updateStatus() {
 // Events (light logging)
 // ---------------------------------------------------------------------------
 
-// Show / hide the top warning banner: a drag-out hides the WHOLE app's menu
-// bar (系统设置-菜单栏 unchecks the app), so the user must re-check it there
-// and then run "Rebuild shown". The banner stays until a recovery action runs.
-function setRemoveBanner(show) {
-  const el = document.querySelector("#remove-banner");
-  if (el) el.hidden = !show;
-}
-
 function listenInstanceEvents(id) {
   listen(`multiline-menubar://${id}//click`, () => {
     const el = document.querySelector("#click-log");
     if (el) el.textContent = `Click: ${id} — settings popup opened`;
   }).catch(() => {});
-  // The plugin polls for user drag-outs (⌘-drag) every ~2s and emits `remove`
-  // when the system detaches a shown item. Surface it so the user knows the
-  // item is gone and how to bring it back.
+
+  // v1.6.0: a ⌘-drag-out removes ONLY this single item (KVO-detected). We
+  // flip just this instance's toggle off and persist it; the other 4 stay
+  // untouched. Re-opening the toggle (set_visible(true)) brings it back.
   listen(`multiline-menubar://${id}//remove`, () => {
-    setRemoveBanner(true);
+    shown[id] = false;
+    saveShown();
+    renderList();
+    updateStatus();
     const el = document.querySelector("#click-log");
     if (el) {
-      el.textContent =
-        `⚠️ ${id} 被拖出菜单栏 — 系统隐藏了整个 app 的菜单栏。` +
-        `请在 系统设置-菜单栏 重新勾选 MenubarLegacy160，再点 Rebuild shown 恢复`;
+      el.textContent = `${id} 被拖出菜单栏 — toggle 已关闭，重新打开可恢复显示`;
     }
   }).catch(() => {});
 }
@@ -207,7 +182,6 @@ function listenInstanceEvents(id) {
 // ---------------------------------------------------------------------------
 
 window.addEventListener("DOMContentLoaded", async () => {
-  document.querySelector("#rebuild-all-btn").addEventListener("click", rebuildShown);
   document.querySelector("#show-all-btn").addEventListener("click", () => setAllVisible(true));
   document.querySelector("#hide-all-btn").addEventListener("click", () => setAllVisible(false));
 

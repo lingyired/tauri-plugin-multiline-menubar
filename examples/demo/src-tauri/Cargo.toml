@@ -1,5 +1,5 @@
 [package]
-name = "multiline-menubar-example"
+name = "multiline-menubar-demo-new"
 version = "0.1.0"
 description = "A Tauri App"
 authors = ["you"]
