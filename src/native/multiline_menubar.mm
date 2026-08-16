@@ -73,7 +73,7 @@ static inline NSTextAlignment align_for_value(NSInteger value) {
 @property (assign, nonatomic) BOOL topBold;
 @property (assign, nonatomic) BOOL bottomBold;
 // Per-line font family. `nil`/empty => system font. Accepts a macOS font
-// *family* name (e.g. "Menlo", "PingFang SC"); the line still resolves the
+// *family* name (e.g. "Helvetica"); the line still resolves the
 // weight `layout`/bold asks for, using the closest face the family provides.
 @property (copy, nonatomic) NSString *topFontFamily;
 @property (copy, nonatomic) NSString *bottomFontFamily;
@@ -932,7 +932,7 @@ void multiline_menubar_set_bold(const char *id, int top_bold, int bottom_bold) {
 }
 
 /// Set the per-line font family for the top and bottom lines. Each argument is
-/// a macOS font *family* name (e.g. "Menlo", "PingFang SC"), or NULL/empty to
+/// a macOS font *family* name (e.g. "Helvetica"), or NULL/empty to
 /// fall back to the system font for that line. A line keeps resolving the
 /// weight `layout`/`set_bold` asks for, using the closest face the family
 /// provides; unknown names silently fall back to the system font.

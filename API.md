@@ -235,7 +235,7 @@ interface SetFontFamilyOptions {
 ```
 
 Swap the top and/or bottom line to a specific font **family** — the name shown
-in macOS Font Book, e.g. `"Menlo"`, `"PingFang SC"`:
+in macOS Font Book, e.g. `"Helvetica"`:
 
 - `top`/`bottom` set to a family name → that line renders with the closest
   face of the family at the weight `layout`/`setBold` asks for.
@@ -247,8 +247,8 @@ color and bold. The status item is re-measured on every `setFontFamily` call,
 so a wider family grows the item instead of clipping.
 
 ```ts
-// Use a monospace family for the value line, keep the label on the system font:
-await setFontFamily({ id: "main", top: null, bottom: "Menlo" });
+// Swap the value line to a specific family, keep the label on the system font:
+await setFontFamily({ id: "main", top: null, bottom: "Helvetica" });
 ```
 
 ### `SetMonospacedOptions` & Monospaced digits
@@ -275,8 +275,7 @@ jitter as values change:
 - `top`/`bottom` set to `true` → that line uses monospaced digits.
 - `false` (or `setMonospaced` never called) → the regular system font.
 - An explicit font family set via `setFontFamily` **takes precedence** over
-  this toggle — the user's explicit font choice wins (a family like `Menlo`
-  is already monospaced anyway).
+  this toggle — the user's explicit font choice wins (e.g. `"Helvetica"`).
 
 Each line is controlled separately, and the toggle is orthogonal to size,
 color, bold and family. The status item is re-measured on every

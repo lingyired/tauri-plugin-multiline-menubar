@@ -1100,7 +1100,7 @@ impl<R: Runtime> MultilineMenubar<R> {
     }
 
     /// Set the per-line font family for the top and bottom lines. Each is a
-    /// macOS font *family* name (e.g. `"Menlo"`, `"PingFang SC"`); `None` or
+    /// macOS font *family* name (e.g. `"Helvetica"`); `None` or
     /// an empty string falls back to the system font for that line.
     pub fn set_font_family(
         &self,

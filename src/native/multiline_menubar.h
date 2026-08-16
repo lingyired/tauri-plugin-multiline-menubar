@@ -118,7 +118,7 @@ void multiline_menubar_set_bold(const char *id, int top_bold, int bottom_bold);
 /**
  * Set the per-line font family for the top and bottom lines.
  *
- * Each argument is a macOS font *family* name (e.g. "Menlo", "PingFang SC"),
+ * Each argument is a macOS font *family* name (e.g. "Helvetica"),
  * or NULL/empty to fall back to the system font for that line. A line keeps
  * resolving the weight `layout`/bold asks for, using the closest face the
  * family provides; unknown names silently fall back to the system font.
