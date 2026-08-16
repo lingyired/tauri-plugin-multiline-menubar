@@ -135,7 +135,7 @@ export interface SetBoldOptions {
  * Per-line font family for the two menubar lines.
  *
  * Each field is a macOS font *family* name — the name shown in Font Book,
- * e.g. `'Menlo'`, `'PingFang SC'`. `null` (or an empty string) keeps the
+ * e.g. `'Helvetica'`. `null` (or an empty string) keeps the
  * system font for that line. A line still resolves the weight `setLayout` /
  * `setBold` ask for, using the closest face the family provides; unknown
  * names silently fall back to the system font.

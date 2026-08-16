@@ -143,7 +143,7 @@ pub struct SetBoldRequest {
 
 /// Per-line font family for the two menubar lines.
 ///
-/// Each field is a macOS font *family* name (e.g. `"Menlo"`, `"PingFang SC"`).
+/// Each field is a macOS font *family* name (e.g. `"Helvetica"`).
 /// `None` (or an empty string) keeps the system font for that line. The line
 /// still resolves the weight `layout`/`set_bold` asks for, using the closest
 /// face the family provides; unknown names silently fall back to the system
