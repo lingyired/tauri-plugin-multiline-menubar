@@ -158,7 +158,7 @@ await setBold({ id: "main", top: true, bottom: false });
 
 // Swap a line to a specific font family (macOS Font Book name); pass
 // null/'' to restore the system font. Unknown names fall back silently.
-await setFontFamily({ id: "main", top: null, bottom: "Menlo" });
+await setFontFamily({ id: "main", top: null, bottom: "Helvetica" });
 // Listen to the click event if you want to drive the popup yourself instead.
 await listen(EVENT_CLICK, (e) => {
   console.log("clicked", e.payload); // { button, x, y, width, height }
@@ -255,7 +255,7 @@ The font size of each line can be customized independently via `setFontSizes`. V
 
 The weight of each line can also be overridden independently via `setBold`: pass `top`/`bottom` as `true` to force that line bold (overriding the weight `layout` assigns), or `false` to leave it to the layout.
 
-The font **family** of each line can likewise be set independently via `setFontFamily`: pass a macOS font family name from Font Book (e.g. `"Menlo"`, `"PingFang SC"`) for `top`/`bottom`, or `null`/`''` to keep the system font. The line still resolves the weight `layout`/`setBold` asks for, using the closest face the family provides; unknown names fall back to the system font.
+The font **family** of each line can likewise be set independently via `setFontFamily`: pass a macOS font family name from Font Book (e.g. `"Helvetica"`) for `top`/`bottom`, or `null`/`''` to keep the system font. The line still resolves the weight `layout`/`setBold` asks for, using the closest face the family provides; unknown names fall back to the system font.
 
 On click, the native helper measures the status item's on-screen rectangle and
 calls back into Rust, which emits the `click` event and (when auto-popup is
