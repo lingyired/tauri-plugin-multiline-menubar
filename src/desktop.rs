@@ -734,7 +734,28 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
             // selecting them always exits the app. The ids are centralized
             // here so adjusting the set is a one-line change.
             if QUIT_ITEM_IDS.contains(&item_id) {
-                app.exit(0);
+                // macOS: `on_menu_event` fires inside the menu action, i.e.
+                // while the native right-click menu's modal tracking loop is
+                // still unwinding — even after `popUpMenuPositioningItem:`
+                // returns, the button's outer `trackMouse:` hasn't seen a
+                // `rightMouseUp` yet (the modal loop consumed it; the native
+                // side re-posts one, but only after this callback returns).
+                // Calling `app.exit(0)` synchronously here races that tracking
+                // loop: `[NSApp stop:]` can't end the inner tracking, tao's
+                // BeforeWaiting observer keeps posting dummy events, and the
+                // app spins at 100% CPU with growing memory until the user
+                // clicks the menubar. Defer the exit ~200ms so the menu
+                // dismisses and the tracking loop fully unwinds first, then
+                // exit cleanly from the main run loop.
+                //
+                // A plain std::thread is used (no tokio dependency): the
+                // AppHandle dispatches the exit through the event-loop proxy,
+                // which is thread-safe.
+                let app = app.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                    app.exit(0);
+                });
                 return;
             }
 
