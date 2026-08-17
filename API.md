@@ -126,6 +126,20 @@ All functions are `async` and return a `Promise`.
 > built directly with `muda` rather than through Tauri's `menu` plugin
 > commands.
 
+> **Note (v1.6.1): `quit` / `quit2` are *asynchronous*.** Menu items whose id
+> is in the plugin's reserved set (`"quit"`, `"quit2"`) never exit
+> synchronously: the plugin defers `app.exit(0)` by ~200 ms so the native
+> right-click menu can dismiss and the status button's tracking loop can
+> unwind first. Hosts must not assume the app is gone the moment the menu
+> event fires (don't tear down windows in the same handler). Any other id is
+> treated as a regular item and re-emitted on `multiline-menubar://{id}//menu`.
+>
+> Relatedly, the native right-click popup (`popUpMenuPositioningItem:`) runs a
+> modal tracking loop that consumes the click's `rightMouseUp`; the plugin
+> re-posts one after the menu closes so the button's outer `trackMouse:` can
+> finish. That's internal, but it's exactly why an exit triggered from the
+> menu must be deferred rather than synchronous.
+
 ### Popup window
 
 A left click opens a Tauri WebView window anchored below the item.

@@ -578,6 +578,28 @@ static void *kRemovalContext = &kRemovalContext;
     [button highlight:YES];
     [inst.menu popUpMenuPositioningItem:nil atLocation:location inView:button];
     [button highlight:NO];
+
+    // ── v1.6.1: 补发 rightMouseUp，修复右键菜单退出挂起 ─────────────────
+    // popUpMenuPositioningItem: 的 modal loop 消费掉了本次点击的 rightMouseUp，
+    // 导致 button 外层 trackMouse:untilMouseUp: 永远等不到 mouseUp、卡死在
+    // NSEventTrackingRunLoopMode（菜单关了 tracking 还活着）。此时若宿主在
+    // 菜单 action 里 app.exit(0)，tao 的 BeforeWaiting observer 每轮向事件
+    // 队列 post dummy 事件，让卡死的 tracking 无限忙转 → 100% CPU + 内存
+    // 持续增长，直到手动点击 menubar 产生真实 mouseUp 才退出。补发一个
+    // rightMouseUp 让外层 tracking 正常收尾，run loop 回到 default mode。
+    // 进入本分支时 currentEvent 必非 nil（isRight 仅在其为右键事件时为 YES）。
+    NSEvent *cur = [NSApp currentEvent];
+    NSEvent *mouseUp = [NSEvent mouseEventWithType:NSEventTypeRightMouseUp
+                                          location:[button convertPoint:NSZeroPoint toView:nil]
+                                     modifierFlags:0
+                                         timestamp:cur.timestamp
+                                      windowNumber:cur.windowNumber
+                                           context:nil
+                                       eventNumber:0
+                                        clickCount:1
+                                          pressure:0];
+    [NSApp postEvent:mouseUp atStart:NO];
+    // ────────────────────────────────────────────────────────────────────
   }
 }
 
