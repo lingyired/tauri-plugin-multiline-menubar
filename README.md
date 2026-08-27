@@ -29,7 +29,7 @@ Fund01 is a portfolio & market tracker that uses this plugin to display real-tim
 
 ## Supported platforms
 
-- **macOS** — full native support via `NSStatusItem` + a custom `NSView`.
+- **macOS** — full native support via `NSStatusItem` + `attributedTitle` (a system-rendered `NSAttributedString`).
 - **Windows / Linux / mobile** — API compiles but returns `UnsupportedPlatform`.
 
 ## Example
@@ -74,6 +74,33 @@ To prevent this, always use a distinct bundle ID per flavor: the demo's
 `identifier` `com.tauri.multiline-menubar-demo-new.dev`), while
 `npm run tauri:build` keeps the release identity, so dev and release never
 share a bundle ID.
+
+## Installation
+
+The plugin ships as **two packages that must both be installed** — the Rust
+crate (native implementation) and the JS bindings (front-end entry point):
+
+- **Rust crate** — `tauri-plugin-multiline-menubar` on
+  [crates.io](https://crates.io/crates/tauri-plugin-multiline-menubar),
+  added to your `src-tauri/Cargo.toml`:
+
+  ```bash
+  cargo add tauri-plugin-multiline-menubar
+  ```
+
+- **JS bindings** — `tauri-plugin-multiline-menubar-api` on
+  [npm](https://www.npmjs.com/package/tauri-plugin-multiline-menubar-api),
+  installed in your webview front-end:
+
+  ```bash
+  npm install tauri-plugin-multiline-menubar-api
+  ```
+
+The `-api` suffix on the npm package is the Tauri plugin naming convention: it
+marks the JavaScript API bindings that pair with the Rust crate of the same
+name (e.g. `tauri-plugin-fs` ↔ `tauri-plugin-fs-api`). The JS bindings are a
+thin layer that forwards your calls to the Rust side over Tauri's IPC, so
+without the crate they have nothing to call — install both.
 
 ## Rust usage
 
@@ -158,7 +185,7 @@ import {
   EVENT_POPUP_OPEN,
   EVENT_POPUP_CLOSE,
   listen,
-} from "tauri-plugin-multiline-menubar";
+} from "tauri-plugin-multiline-menubar-api";
 
 await create({ id: "main" });
 await setText({ id: "main", top: "Sensor", bottom: "16W" });
@@ -261,12 +288,16 @@ macOS menubar plugin family (e.g. `tauri-plugin-menubar-dnd`):
 
 ## How it works
 
-The plugin uses a small Objective-C++ helper that creates an `NSStatusItem` and attaches a custom `NSView`. The view draws two lines of text:
+The plugin uses a small Objective-C++ helper that creates an `NSStatusItem`
+and renders both lines as a single `NSAttributedString` (joined with `\n`)
+assigned to `button.attributedTitle` — the system-native text-field path, the
+same approach used by Clash Verge Rev's tray speed label. Per-line font
+family, weight, size, color and monospaced digits are applied per character
+range; the item width tracks the wider line so the label stays as narrow as
+possible.
 
 - **Top line**: 7 pt, light weight (label).
 - **Bottom line**: 12 pt, regular weight (value).
-
-The view width is computed from the text so the menu bar item stays as narrow as possible.
 
 The font size of each line can be customized independently via `setFontSizes`. Values are clamped on the native side to keep both lines inside the ~22 pt tall menu bar without overlapping:
 
