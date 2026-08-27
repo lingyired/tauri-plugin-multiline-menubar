@@ -7,6 +7,26 @@
 
 A Tauri v2 plugin that renders a two-line label in the macOS menu bar, similar to the Stats app's Mini widget.
 
+## Screenshots
+
+### Multiple menu-bar instances
+
+Each `create()` call adds an independent status item — run as many as you need.
+
+![Multiple instances](screenshots/menubar.png)
+
+### Per-line style customization
+
+Every line can have its own color, font family, weight (bold), and monospaced digits — all independently.
+
+![Per-line styles](screenshots/menubar-style.png)
+
+### Real-world example: [Fund01](https://github.com/lingyired/fund01)
+
+Fund01 is a portfolio & market tracker that uses this plugin to display real-time index and P&L data in the menu bar. Clicking any item opens a rich popup with index quotes, holdings, and more.
+
+![Fund01](screenshots/fund0.png)
+
 ## Supported platforms
 
 - **macOS** — full native support via `NSStatusItem` + a custom `NSView`.
