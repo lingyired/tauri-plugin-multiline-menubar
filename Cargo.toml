@@ -1,10 +1,17 @@
 [package]
 name = "tauri-plugin-multiline-menubar"
 version = "1.6.1"
-authors = [ "tauri-plugin-multiline-menubar" ]
+authors = ["lingyired"]
 description = "A Tauri plugin that renders a two-line label in the macOS menu bar."
 edition = "2021"
 rust-version = "1.77.2"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/lingyired/tauri-plugin-multiline-menubar"
+homepage = "https://github.com/lingyired/tauri-plugin-multiline-menubar"
+documentation = "https://docs.rs/tauri-plugin-multiline-menubar"
+keywords = ["tauri", "tauri-plugin", "menubar", "macos", "statusbar"]
+categories = ["gui", "os", "development-tools"]
 exclude = ["/examples", "/dist-js", "/guest-js", "/node_modules"]
 links = "tauri-plugin-multiline-menubar"
 

@@ -1,8 +1,20 @@
 {
   "name": "tauri-plugin-multiline-menubar-api",
   "version": "1.6.1",
-  "author": "tauri-plugin-multiline-menubar",
-  "description": "",
+  "author": "lingyired",
+  "description": "Tauri v2 plugin to render a two-line label in the macOS menu bar via NSStatusItem.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lingyired/tauri-plugin-multiline-menubar.git"
+  },
+  "keywords": [
+    "tauri",
+    "tauri-plugin",
+    "menubar",
+    "macos",
+    "statusbar"
+  ],
   "type": "module",
   "types": "./dist-js/index.d.ts",
   "main": "./dist-js/index.cjs",
