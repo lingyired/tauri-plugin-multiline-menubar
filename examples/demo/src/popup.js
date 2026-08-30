@@ -33,6 +33,37 @@ window.addEventListener("DOMContentLoaded", () => {
   const topHexEl = document.querySelector("#popup-top-hex");
   const bottomColorEl = document.querySelector("#popup-bottom-color");
   const bottomHexEl = document.querySelector("#popup-bottom-hex");
+  const topSolidRowEl = document.querySelector("#popup-top-solid-row");
+  const bottomSolidRowEl = document.querySelector("#popup-bottom-solid-row");
+  const topCmodeEl = document.querySelector("#popup-top-cmode");
+  const bottomCmodeEl = document.querySelector("#popup-bottom-cmode");
+
+  // Per-line color mode: "default" = follow the system light/dark theme,
+  // "solid" = a fixed hex color. Mirrors the ColorStyle tagged union.
+  const colorMode = { top: "default", bottom: "default" };
+
+  // Highlight the active System/Custom button in a segmented group.
+  const setColorModePressed = (groupEl, mode) => {
+    for (const btn of groupEl.querySelectorAll("button[data-cmode]")) {
+      btn.setAttribute("aria-pressed", String(btn.dataset.cmode === mode));
+    }
+  };
+
+  // Sync one line's color section to a ColorStyle object from the plugin.
+  const fillColorStyle = (line, color) => {
+    const mode = color && color.type === "solid" ? "solid" : "default";
+    colorMode[line] = mode;
+    const groupEl = line === "top" ? topCmodeEl : bottomCmodeEl;
+    const rowEl = line === "top" ? topSolidRowEl : bottomSolidRowEl;
+    setColorModePressed(groupEl, mode);
+    rowEl.hidden = mode !== "solid";
+    if (mode === "solid" && color && /^#[0-9a-fA-F]{6}$/.test(color.value)) {
+      const colorEl = line === "top" ? topColorEl : bottomColorEl;
+      const hexEl = line === "top" ? topHexEl : bottomHexEl;
+      colorEl.value = color.value;
+      hexEl.value = color.value;
+    }
+  };
 
   // Picking a color in the native picker auto-fills the hex field (which the
   // user may still edit by hand); the hex field is what gets applied.
@@ -119,18 +150,13 @@ window.addEventListener("DOMContentLoaded", () => {
       bottomMonoEl.checked = !!bottomMonospaced;
     if (topAlign !== undefined && topAlign !== null)
       topAlignEl.value = String(topAlign);
-    // Show the instance's current solid colors (hex or the picker default when
-    // the line uses the system color).
-    if (topColor !== undefined && topColor !== null && /^#[0-9a-fA-F]{6}$/.test(topColor)) {
-      topColorEl.value = topColor;
-      topHexEl.value = topColor;
-    }
+    // Show the instance's current color mode: a `solid` ColorStyle selects
+    // "Custom" and pre-fills the swatch/hex; `default` (or absence) selects
+    // "System" and hides the custom row.
+    if (topColor !== undefined && topColor !== null) fillColorStyle("top", topColor);
     if (bottomAlign !== undefined && bottomAlign !== null)
       bottomAlignEl.value = String(bottomAlign);
-    if (bottomColor !== undefined && bottomColor !== null && /^#[0-9a-fA-F]{6}$/.test(bottomColor)) {
-      bottomColorEl.value = bottomColor;
-      bottomHexEl.value = bottomColor;
-    }
+    if (bottomColor !== undefined && bottomColor !== null) fillColorStyle("bottom", bottomColor);
     if (layout !== undefined && layout !== null) {
       const l = layout;
       layoutBottomEl.checked = l === 0;
@@ -198,10 +224,27 @@ window.addEventListener("DOMContentLoaded", () => {
     return document.querySelector(`#popup-${line}-color`).value;
   };
 
-  // Build a solid ColorStyle for one line from the popup's color form.
+  // Build a ColorStyle for one line: "Custom" pins a hex value, "System"
+  // falls back to the theme-following default.
   const buildStyle = (line) => {
-    return { type: "solid", value: resolveColor(line) };
+    return colorMode[line] === "solid"
+      ? { type: "solid", value: resolveColor(line) }
+      : { type: "default" };
   };
+
+  // System/Custom segmented buttons: switching only updates the UI — the
+  // chosen style is sent when "Apply colors" is pressed.
+  for (const line of ["top", "bottom"]) {
+    const groupEl = line === "top" ? topCmodeEl : bottomCmodeEl;
+    const rowEl = line === "top" ? topSolidRowEl : bottomSolidRowEl;
+    groupEl.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-cmode]");
+      if (!btn || btn.dataset.cmode === colorMode[line]) return;
+      colorMode[line] = btn.dataset.cmode;
+      setColorModePressed(groupEl, colorMode[line]);
+      rowEl.hidden = colorMode[line] !== "solid";
+    });
+  }
 
   // Apply the chosen colors to whichever instance opened this popup.
   document.querySelector("#popup-colors").addEventListener("click", () => {
@@ -219,12 +262,18 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   // Revert to the system default text color for whichever instance opened
-  // this popup.
+  // this popup, and reset the System/Custom UI back to System.
   document.querySelector("#popup-reset").addEventListener("click", () => {
     if (!currentInstanceId) {
       console.warn("Popup reset ignored: no instance is targeted.");
       return;
     }
+    colorMode.top = "default";
+    colorMode.bottom = "default";
+    setColorModePressed(topCmodeEl, "default");
+    setColorModePressed(bottomCmodeEl, "default");
+    topSolidRowEl.hidden = true;
+    bottomSolidRowEl.hidden = true;
     invoke("plugin:multiline-menubar|set_colors", {
       payload: {
         id: currentInstanceId,

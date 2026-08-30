@@ -65,7 +65,9 @@ static inline NSTextAlignment align_for_value(NSInteger value) {
 @property CGFloat topFontSize;
 @property CGFloat bottomFontSize;
 @property (assign, nonatomic) MenubarLayoutMode layoutMode;
-// Per-line text color. `nil` => system `textColor` (follows light/dark mode).
+// Per-line text color. `nil` => system `labelColor`, resolved at paint time so
+// it follows light/dark mode. A `default` line never stores a concrete color
+// (mirrors the Windows sibling plugin's `ColorStyle::Default` handling).
 @property (copy, nonatomic) NSColor *topColor;
 @property (copy, nonatomic) NSColor *bottomColor;
 // Per-line bold overrides. When set, that line renders with
@@ -276,8 +278,9 @@ static NSInteger nsfontmanager_weight(NSFontWeight weight) {
 }
 
 /// Draw a single line of text, painted with the given solid `NSColor`. When
-/// `color` is nil the system `textColor` is used, which follows light/dark
-/// mode automatically. `align` sets the horizontal alignment within `rect`.
+/// `color` is nil the system `labelColor` is used — resolved *at paint time*,
+/// so a `default` line follows light/dark mode without storing a color. `align`
+/// sets the horizontal alignment within `rect`.
 - (void)drawLine:(NSString *)text
             font:(NSFont *)font
             rect:(NSRect)rect
@@ -285,7 +288,7 @@ static NSInteger nsfontmanager_weight(NSFontWeight weight) {
            align:(NSTextAlignment)align {
   if (text.length == 0) return;
 
-  NSColor *fg = color ? color : [NSColor textColor];
+  NSColor *fg = color ? color : [NSColor labelColor];
   NSMutableParagraphStyle *para =
       [[NSMutableParagraphStyle defaultParagraphStyle] mutableCopy];
   para.alignment = align;
@@ -307,7 +310,7 @@ static NSInteger nsfontmanager_weight(NSFontWeight weight) {
 
 /// Parse a hex color (`#rgb`, `#rrggbb`, or `#rrggbbaa`) into an `NSColor`.
 /// Returns nil for empty/invalid input so the caller can fall back to the
-/// system text color.
+/// system `labelColor`.
 static NSColor *color_from_hex(NSString *hex) {
   if (hex.length == 0) return nil;
   NSMutableString *s = [hex mutableCopy];
@@ -341,7 +344,8 @@ static NSColor *color_from_hex(NSString *hex) {
 
 /// Decode a color-style JSON object into a solid `NSColor`. `default` (or
 /// anything unrecognized, or a missing/empty value) returns nil so the view
-/// keeps using the system text color.
+/// keeps using the system `labelColor` — note that this deliberately stores
+/// *no* color, letting the paint-time resolution follow light/dark mode.
 static NSColor *parse_color_style(NSString *json) {
   if (json == nil || json.length == 0) return nil;
   NSData *data = [json dataUsingEncoding:NSUTF8StringEncoding];
@@ -408,6 +412,9 @@ static MultilineMenubarRemoveCallback g_removeCallback = NULL;
 /// pointer guarantees our `observeValueForKeyPath:` only reacts to *our*
 /// observation and never a superclass's.
 static void *kRemovalContext = &kRemovalContext;
+
+/// KVO context for the light/dark mode observation (same reasoning).
+static void *kAppearanceContext = &kAppearanceContext;
 
 @implementation MenubarInstance
 
@@ -660,10 +667,108 @@ static void redraw_instance(MenubarInstance *inst) {
   [inst updateWidth];
 }
 
+// ---------------------------------------------------------------------------
+// Light/dark mode following
+//
+// Mirrors the Windows sibling plugin's "resolve at paint time" design: a
+// `default` line stores `nil` and asks `NSColor.labelColor` for its color on
+// every draw, so it is always correct *whenever a draw happens*. What that
+// design cannot do on its own is make a draw happen — the status-bar host does
+// not reliably repaint on an appearance change (see `redraw_instance`), so the
+// text would keep the old mode's color until the next `set_text`. The KVO
+// watcher below closes that gap. See docs/system-color-following.md.
+// ---------------------------------------------------------------------------
+
+/// Repaint every registered instance. Only needed for changes that affect all
+/// items at once — currently just a light/dark flip.
+static void redraw_all_instances(void) {
+  for (MenubarInstance *inst in g_instances.allValues) {
+    redraw_instance(inst);
+  }
+}
+
+/// Whether the app currently resolves to dark mode. Probed from
+/// `NSApp.effectiveAppearance`, i.e. the appearance the app actually ends up
+/// with: it tracks the system unless the host app pins its own appearance
+/// (or sets `NSRequiresAquaSystemAppearance`), in which case following the
+/// app is the correct behavior anyway.
+static BOOL current_theme_is_dark(void) {
+  NSAppearance *appearance = NSApp.effectiveAppearance;
+  if (!appearance) return NO;
+  NSString *match = [appearance bestMatchFromAppearancesWithNames:@[
+    NSAppearanceNameAqua, NSAppearanceNameDarkAqua
+  ]];
+  return [match isEqualToString:NSAppearanceNameDarkAqua];
+}
+
+/// Last observed mode, `nil` until the first probe. Mirrors the Windows
+/// plugin's `LAST_LIGHT_THEME` cache: notifications can also fire for changes
+/// that do not flip light/dark at all, and a repaint touches `statusItem.length`
+/// on every item, so compare before paying for it.
+static NSNumber *g_lastDarkMode = nil;
+
+/// Watches `NSApp.effectiveAppearance` so a light/dark flip repaints every
+/// item. This is the macOS counterpart of the Windows plugin's 500 ms polling
+/// timer; being KVO, it is event-driven and fires on the main thread, so there
+/// is no polling and no extra latency.
+@interface MenubarAppearanceObserver : NSObject
++ (void)install;
+@end
+
+@implementation MenubarAppearanceObserver
+
++ (void)install {
+  if (![NSThread isMainThread]) {
+    // KVO registration belongs on the main thread. Hop instead of registering
+    // inline; the watcher is armed a tick later, which only delays a repaint
+    // that nothing is waiting on yet.
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [MenubarAppearanceObserver install];
+    });
+    return;
+  }
+  static MenubarAppearanceObserver *shared = nil;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    shared = [[MenubarAppearanceObserver alloc] init];
+    // `Initial` gives us the very first probe for free, so the cache is never
+    // stale even before a mode change happens.
+    [NSApp addObserver:shared
+            forKeyPath:@"effectiveAppearance"
+               options:(NSKeyValueObservingOptionInitial |
+                        NSKeyValueObservingOptionNew)
+               context:kAppearanceContext];
+  });
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary<NSKeyValueChangeKey, id> *)change
+                       context:(void *)context {
+  if (context != kAppearanceContext) {
+    [super observeValueForKeyPath:keyPath
+                         ofObject:object
+                           change:change
+                          context:context];
+    return;
+  }
+  BOOL dark = current_theme_is_dark();
+  if (g_lastDarkMode != nil && g_lastDarkMode.boolValue == dark) {
+    return;
+  }
+  g_lastDarkMode = @(dark);
+  redraw_all_instances();
+}
+
+@end
+
 static MenubarInstance *ensure_instance(NSString *key) {
   if (!g_instances) {
     g_instances = [NSMutableDictionary dictionary];
   }
+  // Arm the light/dark watcher before the first item that could ever need a
+  // repaint exists. Cheap and idempotent — every later call is a no-op.
+  [MenubarAppearanceObserver install];
   MenubarInstance *inst = g_instances[key];
   if (inst) {
     return inst;

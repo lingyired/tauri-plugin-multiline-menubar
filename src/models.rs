@@ -14,19 +14,34 @@ pub struct Rect {
 /// A menu item descriptor used to build a real Tauri `Menu` from the frontend.
 /// The `id` field becomes the menu item's `MenuId`, which is reported back
 /// through Tauri's global `on_menu_event`.
+///
+/// The shape mirrors `tauri-plugin-multiline-taskband`'s descriptor one-for-one
+/// so the same menu tree can be handed to either plugin.
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum MenuItemDescriptor {
     Item {
         id: String,
         text: String,
-        accelerator: Option<String>,
+        /// Whether the item is clickable. Defaults to `true`.
+        ///
+        /// The legacy `disabled` field is still accepted (and inverted) so
+        /// callers written against older versions keep working. Prefer
+        /// `enabled`; when both are present `enabled` wins.
+        #[serde(default)]
+        enabled: Option<bool>,
+        /// Deprecated: use `enabled` instead. Ignored when `enabled` is set.
+        #[serde(default)]
         disabled: Option<bool>,
+        #[serde(default)]
+        accelerator: Option<String>,
     },
     Check {
         id: String,
         text: String,
+        #[serde(default)]
         checked: Option<bool>,
+        #[serde(default)]
         accelerator: Option<String>,
     },
     Separator,
@@ -110,8 +125,11 @@ pub struct SetMenuRequest {
 
 /// How the text of a menubar line should be painted.
 ///
-/// `default` keeps the system `textColor` (follows light/dark mode). `solid`
-/// uses a single hex color.
+/// `default` keeps the system `labelColor`. It is resolved during every paint
+/// rather than stored as a concrete color, so switching light/dark mode only
+/// needs a repaint (which the native layer triggers itself). `solid` uses a
+/// single hex color and does not follow the mode. Mirrors
+/// `tauri-plugin-multiline-taskband`'s enum one-for-one.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum ColorStyle {

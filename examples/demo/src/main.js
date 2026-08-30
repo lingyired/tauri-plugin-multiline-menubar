@@ -77,7 +77,7 @@ async function setupInstanceMenu(id) {
     payload: {
       id,
       items: [
-        { type: "item", id: "version", text: `multiline-menubar-demo-new v${version}`, disabled: true },
+        { type: "item", id: "version", text: `multiline-menubar-demo-new v${version}`, enabled: false },
         { type: "separator" },
         { type: "item", id: "quit", text: "Quit", accelerator: "CmdOrCtrl+Q" },
       ],

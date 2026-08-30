@@ -84,19 +84,24 @@ export const FONT_SIZE_RANGE = {
  * A menu item descriptor. The `id` becomes the menu item's `MenuId`, and is
  * reported back as `itemId` on the instance's `menu` event (and to Tauri's
  * global `on_menu_event` on the Rust side).
+ *
+ * The shape mirrors `tauri-plugin-multiline-taskband`'s descriptor so the same
+ * menu tree can be handed to either plugin.
  */
 export type MenuItemDescriptor =
   | {
       type: 'item'
       id: string
       text: string
+      /** Whether the item is clickable. Defaults to `true`. */
+      enabled?: boolean
       accelerator?: string
-      disabled?: boolean
     }
   | {
       type: 'check'
       id: string
       text: string
+      /** Initial checked state. Defaults to `false`. */
       checked?: boolean
       accelerator?: string
     }
@@ -111,7 +116,7 @@ export interface SetMenuOptions {
 
 /** How a menubar line should be painted. */
 export type ColorStyle =
-  | { type: 'default' }
+  | { type: 'default' } // system color, follows light/dark mode automatically
   | { type: 'solid'; value: string }
 
 export interface SetColorsOptions {
@@ -473,4 +478,77 @@ export async function togglePopup(options: IdOptions): Promise<void> {
   return await invoke('plugin:multiline-menubar|toggle_popup', {
     payload: options,
   })
+}
+
+/**
+ * Subscribe to clicks on one instance's menu bar item. Returns the usual Tauri
+ * unlisten function.
+ *
+ * ```ts
+ * await onClick('main', (e) => {
+ *   if (e.button === 'right') openMenu()
+ * })
+ * ```
+ */
+export async function onClick(
+  id: string,
+  handler: (event: ClickEvent) => void
+): Promise<UnlistenFn> {
+  return await listen<ClickEvent>(EVENT_CLICK(id), (e) => handler(e.payload))
+}
+
+/**
+ * Subscribe to the settings popup opening for one instance. Returns the usual
+ * Tauri unlisten function.
+ */
+export async function onPopupOpen(
+  id: string,
+  handler: (event: PopupEvent) => void
+): Promise<UnlistenFn> {
+  return await listen<PopupEvent>(EVENT_POPUP_OPEN(id), (e) => handler(e.payload))
+}
+
+/**
+ * Subscribe to the settings popup closing for one instance. Returns the usual
+ * Tauri unlisten function.
+ */
+export async function onPopupClose(
+  id: string,
+  handler: (event: PopupEvent) => void
+): Promise<UnlistenFn> {
+  return await listen<PopupEvent>(EVENT_POPUP_CLOSE(id), (e) => handler(e.payload))
+}
+
+/**
+ * Subscribe to the `ready` event for one instance (fired after its status item
+ * has been created on the menu bar). Returns the usual Tauri unlisten
+ * function.
+ */
+export async function onReady(
+  id: string,
+  handler: (event: ReadyEvent) => void
+): Promise<UnlistenFn> {
+  return await listen<ReadyEvent>(EVENT_READY(id), (e) => handler(e.payload))
+}
+
+/**
+ * Subscribe to the pointer entering one instance. Returns the usual Tauri
+ * unlisten function.
+ */
+export async function onEnter(
+  id: string,
+  handler: (event: HoverEvent) => void
+): Promise<UnlistenFn> {
+  return await listen<HoverEvent>(EVENT_ENTER(id), (e) => handler(e.payload))
+}
+
+/**
+ * Subscribe to the pointer leaving one instance. Returns the usual Tauri
+ * unlisten function.
+ */
+export async function onLeave(
+  id: string,
+  handler: (event: HoverEvent) => void
+): Promise<UnlistenFn> {
+  return await listen<HoverEvent>(EVENT_LEAVE(id), (e) => handler(e.payload))
 }

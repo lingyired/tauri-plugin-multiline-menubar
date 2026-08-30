@@ -121,6 +121,20 @@ All functions are `async` and return a `Promise`.
 | `onMenuSelection` | `(id: string, handler: (e: MenuSelectionEvent) => void) => Promise<UnlistenFn>` | Subscribe to context-menu selections for one instance. |
 | `onRemove` | `(id: string, handler: (e: RemoveEvent) => void) => Promise<UnlistenFn>` | Subscribe to the user removing the item (⌘-drag out of the menu bar). Only fires for a *user* removal, not a programmatic hide/destroy. |
 
+### Events (convenience subscriptions)
+
+Thin wrappers over `listen(eventName(id, EVENT_*), ...)` for the other event
+kinds. Each returns the usual Tauri `UnlistenFn`.
+
+| Function | Payload type | Description |
+| --- | --- | --- |
+| `onClick(id, handler)` | `ClickEvent` | Left/right click on the item. |
+| `onReady(id, handler)` | `ReadyEvent` | Fired after the status item is created. |
+| `onEnter(id, handler)` | `HoverEvent` | Pointer entered the item. |
+| `onLeave(id, handler)` | `HoverEvent` | Pointer left the item. |
+| `onPopupOpen(id, handler)` | `PopupEvent` | Settings popup opened (payload also carries the state snapshot — see [Events](#events)). |
+| `onPopupClose(id, handler)` | `PopupEvent` | Settings popup closed. |
+
 > Note: menu selections are re-emitted on `multiline-menubar://{id}//menu`,
 > **not** Tauri's `@tauri-apps/api/menu` `onMenuEvent`, because the menu is
 > built directly with `muda` rather than through Tauri's `menu` plugin
@@ -152,6 +166,10 @@ A left click opens a Tauri WebView window anchored below the item.
 | `closePopup` | `(options: IdOptions) => Promise<void>` | Hide the popup. |
 | `togglePopup` | `(options: IdOptions) => Promise<void>` | Toggle the popup visibility. |
 
+When a popup opens, the plugin emits `EVENT_POPUP_OPEN` with a snapshot of the
+instance's current state (alignment, monospaced flags, color styles) so the
+popup page can echo it — see [Events](#events).
+
 ### Events
 
 ```ts
@@ -168,7 +186,7 @@ import {
 | `EVENT_CLICK` | `multiline-menubar://{id}//click` | `ClickEvent` |
 | `EVENT_ENTER` | `multiline-menubar://{id}//enter` | `{ id, rect }` |
 | `EVENT_LEAVE` | `multiline-menubar://{id}//leave` | `{ id, rect }` |
-| `EVENT_POPUP_OPEN` | `multiline-menubar://{id}//popup-open` | `{ id, window }` |
+| `EVENT_POPUP_OPEN` | `multiline-menubar://{id}//popup-open` | `PopupOpenEvent` |
 | `EVENT_POPUP_CLOSE` | `multiline-menubar://{id}//popup-close` | `{ id, window }` |
 | `EVENT_MENU` | `multiline-menubar://{id}//menu` | `MenuSelectionEvent` |
 | `EVENT_REMOVE` | `multiline-menubar://{id}//remove` | `RemoveEvent` |
@@ -177,6 +195,16 @@ import {
 from `@tauri-apps/api/event` to subscribe.
 
 `ClickEvent = { id, position: { x, y }, rect: Rect, button: "left" | "right", buttonState: "up" | "down" }`
+
+> **`PopupOpenEvent` (v1.7.0):** the payload is
+> `{ id, window, topAlign, bottomAlign, topMonospaced, bottomMonospaced, topColor, bottomColor }`
+> — a snapshot of the instance's current state so the popup page can pre-fill
+> its form (alignment, monospaced flag, color mode) without extra calls. The
+> extra fields were added in v1.7.0 and are **optional**: handlers written
+> against `{ id, window }` keep working unchanged. `topColor`/`bottomColor`
+> are `ColorStyle` objects (`{ type: "default" }` or `{ type: "solid", value }`),
+> letting the popup show whether a line currently follows the system or is a
+> fixed custom color.
 
 ---
 
@@ -210,9 +238,16 @@ interface RemoveEvent { id: string }
 
 ```ts
 type ColorStyle =
-  | { type: "default" }                 // system textColor (follows light/dark mode)
-  | { type: "solid"; value: string }    // "#rrggbb"
+  | { type: "default" }                 // system color, follows light/dark mode
+  | { type: "solid"; value: string }    // "#rrggbb", fixed
 ```
+
+`default` is resolved on every paint instead of being stored as a concrete
+color, so a light/dark switch only needs a repaint — the native layer watches
+`NSApp.effectiveAppearance` and repaints every instance when the mode flips,
+with no polling and nothing for the frontend to do. `solid` is fixed and never
+follows the mode. The shape is identical to
+`tauri-plugin-multiline-taskband`, so the same frontend code drives both.
 
 ### `SetBoldOptions`
 
@@ -339,7 +374,7 @@ await setAlignment({ id: "main", top: ALIGN_LEFT, bottom: ALIGN_RIGHT });
 
 ```ts
 type MenuItemDescriptor =
-  | { type: "item"; id: string; text: string; accelerator?: string; disabled?: boolean }
+  | { type: "item"; id: string; text: string; accelerator?: string; enabled?: boolean }
   | { type: "check"; id: string; text: string; checked?: boolean; accelerator?: string }
   | { type: "separator" }
   | { type: "submenu"; text: string; items: MenuItemDescriptor[] }
@@ -348,6 +383,9 @@ type MenuItemDescriptor =
 The `id` becomes the menu item's `MenuId` and is reported back as `itemId`
 on the instance's `menu` event. `check` items include `checked` (the state
 after the toggle) in the event payload.
+
+`enabled` defaults to `true`. (`disabled` is still accepted on the Rust side
+for backwards compatibility, but is deprecated — migrate to `enabled`.)
 
 ### `FONT_SIZE_RANGE`
 
@@ -475,8 +513,31 @@ for explicit deny-listing. All identifiers are scoped under
 
 - The plugin owns its own `NSStatusItem`; it does not extend Tauri's built-in
   system tray / tray icon.
-- Text color follows `NSColor.textColor` by default, adapting to light/dark
+- Text color follows `NSColor.labelColor` by default, adapting to light/dark
   mode and accessibility settings.
 - Popup positioning assumes the status item is on the primary monitor.
 - `transparent: true` popup windows need `"app": { "macOSPrivateApi": true }`
   in `tauri.conf.json` for a clean frosted background on macOS.
+
+---
+
+## Changelog
+
+### v1.7.0 — system color following + popup color echo (2026-08-30)
+
+**Backward compatible.** No signatures changed; no breaking changes.
+
+- **`default` color now follows light/dark mode live.** The native layer
+  observes `NSApp.effectiveAppearance` (KVO, event-driven) and repaints every
+  instance when the mode flips, so `{ type: "default" }` lines switch between
+  black and white immediately — no polling, nothing for the frontend to do.
+  Previously a repaint was not guaranteed until the next `setText`/`setColors`.
+- **`default` resolves to `NSColor.labelColor`** instead of `NSColor.textColor`.
+  Visually equivalent for a menu-bar label (both are the system primary text
+  color); `labelColor` is the semantically correct dynamic color and matches
+  the Windows side of `tauri-plugin-multiline-taskband`.
+- **`EVENT_POPUP_OPEN` payload extended** with `topAlign`, `bottomAlign`,
+  `topMonospaced`, `bottomMonospaced`, `topColor`, `bottomColor` — a state
+  snapshot so the popup page can echo the instance's current settings. Old
+  fields (`id`, `window`) unchanged; handlers only reading those keep working.
+- `solid` colors are unchanged and never follow the mode.

@@ -161,6 +161,9 @@ struct InstanceState {
     monospaced: (bool, bool),
     /// Last top/bottom horizontal alignment (0 = left, 1 = center, 2 = right).
     alignment: (i32, i32),
+    /// Last top/bottom color style. `Default` resolves to the system
+    /// `labelColor` at paint time; `Solid` pins a hex value.
+    color: (ColorStyle, ColorStyle),
     /// Last layout mode (0 = stacked, 1 = balanced).
     layout: i32,
 }
@@ -174,6 +177,7 @@ impl Default for InstanceState {
             font_family: (None, None),
             monospaced: (false, false),
             alignment: (0, 0),
+            color: (ColorStyle::Default, ColorStyle::Default),
             layout: 0,
         }
     }
@@ -469,6 +473,20 @@ fn validate_accelerators(items: &[MenuItemDescriptor]) -> crate::Result<()> {
 /// selections are unaffected: muda dispatches them through a process-global
 /// handler that Tauri installs at startup, so they still arrive in
 /// `on_menu_event` keyed by the `id` given here.
+/// Resolve the effective enabled flag for a menu item.
+///
+/// `enabled` is the current field; the legacy `disabled` field is inverted and
+/// used only when `enabled` is absent, so callers written against older
+/// versions keep their behaviour.
+#[cfg(target_os = "macos")]
+fn resolve_enabled(enabled: Option<bool>, disabled: Option<bool>) -> bool {
+    match (enabled, disabled) {
+        (Some(e), _) => e,
+        (None, Some(d)) => !d,
+        (None, None) => true,
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn build_muda_item(desc: MenuItemDescriptor) -> crate::Result<Box<dyn MudaIsMenuItem>> {
     fn accel(value: Option<String>) -> Option<Accelerator> {
@@ -480,11 +498,12 @@ fn build_muda_item(desc: MenuItemDescriptor) -> crate::Result<Box<dyn MudaIsMenu
             id,
             text,
             accelerator,
+            enabled,
             disabled,
         } => Ok(Box::new(MudaMenuItem::with_id(
             id,
             text,
-            !disabled.unwrap_or(false),
+            resolve_enabled(enabled, disabled),
             accel(accelerator),
         ))),
         MenuItemDescriptor::Check {
@@ -604,7 +623,9 @@ fn open_popup_window(app: &tauri::AppHandle<Wry>, id: &str) -> crate::Result<()>
                 "topMonospaced": state.monospaced.0,
                 "bottomMonospaced": state.monospaced.1,
                 "topAlign": state.alignment.0,
-                "bottomAlign": state.alignment.1
+                "bottomAlign": state.alignment.1,
+                "topColor": state.color.0,
+                "bottomColor": state.color.1
             }),
         );
     }
@@ -1056,6 +1077,15 @@ impl<R: Runtime> MultilineMenubar<R> {
     ) -> crate::Result<()> {
         #[cfg(target_os = "macos")]
         {
+            // Remember the style so the popup can show this instance's
+            // current color mode (system vs custom) when it opens.
+            instances()
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .entry(id.clone())
+                .or_default()
+                .color = (top.clone(), bottom.clone());
+
             let top_json =
                 serde_json::to_string(&top).map_err(|e| crate::Error::Menu(e.to_string()))?;
             let bottom_json = serde_json::to_string(&bottom)

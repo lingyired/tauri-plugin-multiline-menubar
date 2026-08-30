@@ -96,7 +96,9 @@ void multiline_menubar_set_layout(const char *id, int layout);
  *
  * Each `top_json` / `bottom_json` argument is a small JSON object describing
  * the paint for that line:
- *   - `{"type":"default"}`        system `textColor` (follows dark mode)
+ *   - `{"type":"default"}`        system `labelColor`, resolved at paint time
+ *                                 so it follows light/dark mode (repaired on
+ *                                 every appearance change)
  *   - `{"type":"solid","value":"#rrggbb"}`
  *
  * An empty or NULL string is treated as `default`.

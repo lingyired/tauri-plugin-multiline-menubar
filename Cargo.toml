@@ -1,6 +1,6 @@
 [package]
 name = "tauri-plugin-multiline-menubar"
-version = "1.6.1"
+version = "1.7.0"
 authors = ["lingyired"]
 description = "A Tauri plugin that renders a two-line label in the macOS menu bar."
 edition = "2021"

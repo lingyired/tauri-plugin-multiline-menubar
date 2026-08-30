@@ -122,6 +122,21 @@
         background: rgba(0, 0, 0, 0.12);
         color: inherit;
       }
+      .seg-btn {
+        background: rgba(0, 0, 0, 0.12);
+        color: inherit;
+        border-radius: 8px;
+      }
+      .seg-btn[aria-pressed="true"] {
+        background: #0a84ff;
+        border-color: #0a84ff;
+        color: white;
+      }
+      @media (prefers-color-scheme: dark) {
+        .seg-btn {
+          background: rgba(255, 255, 255, 0.12);
+        }
+      }
     </style>
   </head>
 
@@ -145,25 +160,37 @@
 
       <fieldset class="colors">
         <legend>Top line color</legend>
-        <div class="field">
-          <label for="popup-top-color">Color</label>
-          <input type="color" id="popup-top-color" value="#7fd1ff" />
+        <div class="row" id="popup-top-cmode">
+          <button type="button" class="seg-btn" data-cmode="default" aria-pressed="true">System</button>
+          <button type="button" class="seg-btn" data-cmode="solid" aria-pressed="false">Custom</button>
         </div>
-        <div class="field">
-          <label for="popup-top-hex">Hex (auto-filled, editable)</label>
-          <input type="text" id="popup-top-hex" value="#7fd1ff" />
+        <div id="popup-top-solid-row" hidden>
+          <div class="field">
+            <label for="popup-top-color">Color</label>
+            <input type="color" id="popup-top-color" value="#7fd1ff" />
+          </div>
+          <div class="field">
+            <label for="popup-top-hex">Hex (auto-filled, editable)</label>
+            <input type="text" id="popup-top-hex" value="#7fd1ff" />
+          </div>
         </div>
       </fieldset>
 
       <fieldset class="colors">
         <legend>Bottom line color</legend>
-        <div class="field">
-          <label for="popup-bottom-color">Color</label>
-          <input type="color" id="popup-bottom-color" value="#ffd166" />
+        <div class="row" id="popup-bottom-cmode">
+          <button type="button" class="seg-btn" data-cmode="default" aria-pressed="true">System</button>
+          <button type="button" class="seg-btn" data-cmode="solid" aria-pressed="false">Custom</button>
         </div>
-        <div class="field">
-          <label for="popup-bottom-hex">Hex (auto-filled, editable)</label>
-          <input type="text" id="popup-bottom-hex" value="#ffd166" />
+        <div id="popup-bottom-solid-row" hidden>
+          <div class="field">
+            <label for="popup-bottom-color">Color</label>
+            <input type="color" id="popup-bottom-color" value="#ffd166" />
+          </div>
+          <div class="field">
+            <label for="popup-bottom-hex">Hex (auto-filled, editable)</label>
+            <input type="text" id="popup-bottom-hex" value="#ffd166" />
+          </div>
         </div>
       </fieldset>
       <div class="row">
